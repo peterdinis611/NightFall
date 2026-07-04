@@ -4,6 +4,7 @@ import { LoadingScreen } from "~/components/shared/LoadingScreen"
 import { ErrorScreen } from "~/components/shared/ErrorScreen"
 import { NotFoundScreen } from "~/components/shared/NotFoundScreen"
 import { ScrollBackdrop } from "~/components/layout/ScrollBackdrop"
+import { AppNav } from "~/components/layout/AppNav"
 
 export const Route = createRootRoute({
   component: RootLayout,
@@ -19,6 +20,7 @@ function RootLayout() {
     <>
       <ScrollBackdrop />
       <div className="relative z-10 min-h-screen text-fg">
+        <AppNav />
         <ContentWarning />
         <Outlet />
       </div>

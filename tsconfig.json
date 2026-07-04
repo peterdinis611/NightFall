@@ -16,7 +16,7 @@
       "#tanstack-start-entry": ["./app/ssr.tsx"],
       "#tanstack-start-plugin-adapters": ["./node_modules/@tanstack/react-start-plugin/dist/esm/plugin-adapters-stub.js"]
     },
-    "types": ["vite/client"]
+    "types": ["vite/client", "vitest/globals"]
   },
   "include": ["app", "convex", "*.ts", "*.tsx"]
 }

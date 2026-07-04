@@ -1,7 +1,6 @@
 import { createFileRoute, Link } from "@tanstack/react-router"
 import { motion } from "framer-motion"
 import { AuthForm } from "~/components/auth/AuthForm"
-import { AppNav } from "~/components/layout/AppNav"
 import { ArrowLeft } from "lucide-react"
 
 type AuthSearch = {
@@ -29,8 +28,6 @@ function AuthPage() {
             "radial-gradient(ellipse 70% 55% at 50% 20%, var(--accent-glow) 0%, transparent 55%), radial-gradient(ellipse 50% 40% at 80% 80%, var(--primary-glow) 0%, transparent 50%)",
         }}
       />
-
-      <AppNav />
 
       <motion.div
         className="w-full max-w-md relative z-10"

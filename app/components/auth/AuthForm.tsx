@@ -1,12 +1,18 @@
 import { useState, useEffect } from "react"
 import { useNavigate } from "@tanstack/react-router"
 import { useAuthActions } from "@convex-dev/auth/react"
-import { useConvexAuth } from "convex/react"
+import { useConvexAuth, useQuery } from "convex/react"
+import { api } from "@convex/_generated/api"
 import { motion, AnimatePresence } from "framer-motion"
+import { authNavigateOptions, getAuthRedirectPath } from "~/lib/authRedirect"
+import { passwordSignIn, anonymousSignIn } from "~/lib/credentialsSignIn"
+import { formatAuthError } from "~/lib/formatAuthError"
 import { cn } from "~/lib/utils"
 import {
   Mail,
   Lock,
+  Eye,
+  EyeOff,
   Github,
   Chrome,
   Ghost,
@@ -25,7 +31,9 @@ type AuthFormProps = {
 export function AuthForm({ redirectTo = "/" }: AuthFormProps) {
   const navigate = useNavigate()
   const { signIn } = useAuthActions()
-  const { isAuthenticated } = useConvexAuth()
+  const { isAuthenticated, isLoading: authLoading } = useConvexAuth()
+  const user = useQuery(api.users.current, isAuthenticated ? {} : "skip")
+  const destination = getAuthRedirectPath(redirectTo)
 
   const [mode, setMode] = useState<AuthMode>("signIn")
   const [email, setEmail] = useState("")
@@ -34,11 +42,12 @@ export function AuthForm({ redirectTo = "/" }: AuthFormProps) {
   const [loading, setLoading] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
 
+  // Signed-in users (not guests) shouldn't stay on /auth
   useEffect(() => {
-    if (isAuthenticated) {
-      navigate({ to: redirectTo as "/" })
+    if (!authLoading && isAuthenticated && user && !user.isAnonymous) {
+      void navigate(authNavigateOptions(destination))
     }
-  }, [isAuthenticated, navigate, redirectTo])
+  }, [authLoading, isAuthenticated, user, navigate, destination])
 
   async function handlePasswordSubmit(e: React.FormEvent) {
     e.preventDefault()
@@ -46,19 +55,17 @@ export function AuthForm({ redirectTo = "/" }: AuthFormProps) {
     setError(null)
 
     try {
-      const params: Record<string, string> = {
-        email,
-        password,
-        flow: mode === "signUp" ? "signUp" : "signIn",
-      }
-      if (mode === "signUp" && name.trim()) {
-        params.name = name.trim()
-      }
-
-      await signIn("password", params)
+      await passwordSignIn(
+        {
+          email,
+          password,
+          flow: mode === "signUp" ? "signUp" : "signIn",
+          name: mode === "signUp" ? name : undefined,
+        },
+        destination,
+      )
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Authentication failed")
-    } finally {
+      setError(formatAuthError(err, mode))
       setLoading(null)
     }
   }
@@ -69,7 +76,7 @@ export function AuthForm({ redirectTo = "/" }: AuthFormProps) {
     try {
       await signIn(provider, { redirectTo })
     } catch (err) {
-      setError(err instanceof Error ? err.message : "OAuth sign-in failed")
+      setError(formatAuthError(err, mode))
       setLoading(null)
     }
   }
@@ -78,10 +85,9 @@ export function AuthForm({ redirectTo = "/" }: AuthFormProps) {
     setLoading("anonymous")
     setError(null)
     try {
-      await signIn("anonymous")
+      await anonymousSignIn(destination)
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Guest sign-in failed")
-    } finally {
+      setError(formatAuthError(err, mode))
       setLoading(null)
     }
   }
@@ -168,6 +174,7 @@ export function AuthForm({ redirectTo = "/" }: AuthFormProps) {
           required
           minLength={8}
           disabled={!!loading}
+          showPasswordToggle
         />
 
         <AnimatePresence>
@@ -257,6 +264,7 @@ function InputField({
   required,
   minLength,
   disabled,
+  showPasswordToggle = false,
 }: {
   icon: React.ReactNode
   type: string
@@ -266,20 +274,39 @@ function InputField({
   required?: boolean
   minLength?: number
   disabled?: boolean
+  showPasswordToggle?: boolean
 }) {
+  const [visible, setVisible] = useState(false)
+  const isPassword = type === "password"
+  const inputType = isPassword && showPasswordToggle && visible ? "text" : type
+
   return (
     <div className="relative">
       <span className="absolute left-4 top-1/2 -translate-y-1/2 text-muted">{icon}</span>
       <input
-        type={type}
+        type={inputType}
         placeholder={placeholder}
         value={value}
         onChange={(e) => onChange(e.target.value)}
         required={required}
         minLength={minLength}
         disabled={disabled}
-        className="input-field pl-11 disabled:opacity-50"
+        className={cn(
+          "input-field pl-11 disabled:opacity-50",
+          showPasswordToggle && isPassword && "pr-11"
+        )}
       />
+      {showPasswordToggle && isPassword && (
+        <button
+          type="button"
+          onClick={() => setVisible((v) => !v)}
+          disabled={disabled}
+          className="absolute right-3 top-1/2 -translate-y-1/2 p-1 rounded-md text-muted hover:text-fg transition-colors disabled:opacity-40"
+          aria-label={visible ? "Hide password" : "Show password"}
+        >
+          {visible ? <EyeOff className="size-4" /> : <Eye className="size-4" />}
+        </button>
+      )}
     </div>
   )
 }

@@ -24,4 +24,9 @@ export default defineConfig({
     port: 3000,
     strictPort: true,
   },
+  test: {
+    environment: "jsdom",
+    setupFiles: ["./app/test/setup.ts"],
+    include: ["app/**/*.test.ts", "app/**/*.test.tsx"],
+  },
 })

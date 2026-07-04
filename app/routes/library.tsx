@@ -4,7 +4,6 @@ import { useConvexAuth } from "convex/react"
 import { api } from "@convex/_generated/api"
 import { motion, AnimatePresence } from "framer-motion"
 import { formatDate } from "~/lib/utils"
-import { AppNav } from "~/components/layout/AppNav"
 import { LoadingScreen } from "~/components/shared/LoadingScreen"
 import { Trash2, Globe, Lock, BookOpen, Plus, ArrowRight } from "lucide-react"
 import { useState } from "react"
@@ -52,7 +51,6 @@ function LibraryPage() {
   if (!isAuthenticated) {
     return (
       <main className="min-h-screen flex flex-col items-center justify-center px-4">
-        <AppNav />
         <motion.div initial={false} className="text-center">
           <BookOpen className="mx-auto size-10 text-night-700 mb-4" />
           <p className="text-night-500 font-serif italic mb-4">Sign in to view your library.</p>
@@ -75,8 +73,6 @@ function LibraryPage() {
 
   return (
     <main className="min-h-screen px-4 py-16 pt-28 max-w-3xl mx-auto">
-      <AppNav />
-
       <div className="flex items-end justify-between mb-8">
         <div>
           <p className="label-section !mb-2 !text-violet-400/60">Your stories</p>

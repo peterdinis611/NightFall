@@ -1,25 +1,45 @@
 import { Link } from "@tanstack/react-router"
-import { useConvexAuth } from "convex/react"
-import { useQuery } from "convex/react"
-import { useAuthActions } from "@convex-dev/auth/react"
+import { useConvexAuth, useQuery } from "convex/react"
+import { useAuthActions, useAuthToken } from "@convex-dev/auth/react"
+import * as DropdownMenu from "@radix-ui/react-dropdown-menu"
 import { api } from "@convex/_generated/api"
-import { Ghost, BookOpen, LogIn, LogOut, User, Sun } from "lucide-react"
+import {
+  Ghost,
+  BookOpen,
+  LogIn,
+  LogOut,
+  Sun,
+  ChevronDown,
+  User,
+  Sparkles,
+} from "lucide-react"
 import { motion } from "framer-motion"
 import { ThemeToggle } from "~/components/shared/ThemeToggle"
 import { AppBrand } from "~/components/shared/AppBrand"
 import { useTheme } from "~/lib/theme"
+import { cn } from "~/lib/utils"
+import { hasStoredAuthSession } from "~/db/authTokens"
 
 export function AppNav() {
   const { isAuthenticated, isLoading } = useConvexAuth()
+  const authToken = useAuthToken()
   const { theme } = useTheme()
-  const user = useQuery(api.users.current, isAuthenticated ? {} : "skip")
   const { signOut } = useAuthActions()
 
-  const displayName =
-    user?.name ?? user?.email?.split("@")[0] ?? (user?.isAnonymous ? "Guest" : null)
+  const signedIn =
+    isAuthenticated || Boolean(authToken) || (!isLoading && hasStoredAuthSession())
+
+  const user = useQuery(api.users.current, signedIn ? {} : "skip")
+
+  const profileLabel =
+    user?.name?.trim() ||
+    user?.email?.split("@")[0] ||
+    (user?.isAnonymous ? "Guest" : "Account")
+
+  const profileInitial = (profileLabel[0] ?? user?.email?.[0] ?? "?").toUpperCase()
 
   return (
-    <header className="fixed top-0 left-0 right-0 z-50 nav-glass">
+    <header className="fixed top-0 left-0 right-0 z-[100] nav-glass">
       <div className="absolute bottom-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-[var(--primary)] to-transparent opacity-25" />
 
       <nav className="mx-auto flex max-w-5xl items-center justify-between px-5 py-3.5">
@@ -58,34 +78,17 @@ export function AppNav() {
         <div className="flex items-center gap-2">
           <ThemeToggle />
 
-          {isAuthenticated && (
-            <Link
-              to="/library"
-              className="btn-ghost flex items-center gap-1.5 !py-2 !px-3 !text-xs"
-            >
-              <BookOpen className="size-3.5" />
-              <span className="hidden sm:inline">Library</span>
-            </Link>
-          )}
-
-          {isLoading ? (
-            <div className="h-8 w-20 rounded-xl bg-[var(--surface-bg)] animate-pulse" />
-          ) : isAuthenticated ? (
-            <div className="flex items-center gap-2">
-              {displayName && (
-                <span className="hidden sm:flex items-center gap-1.5 text-xs text-muted px-2">
-                  <User className="size-3 text-violet-500 dark:text-violet-400/70" />
-                  {displayName}
-                </span>
-              )}
-              <button
-                onClick={() => signOut()}
-                className="btn-ghost flex items-center gap-1.5 !py-2 !px-3 !text-xs"
-              >
-                <LogOut className="size-3.5" />
-                <span className="hidden sm:inline">Sign out</span>
-              </button>
-            </div>
+          {isLoading && !signedIn ? (
+            <div className="h-9 w-28 rounded-xl bg-[var(--surface-bg)] animate-pulse" />
+          ) : signedIn ? (
+            <ProfileDropdown
+              label={profileLabel}
+              initial={profileInitial}
+              email={user?.email}
+              isAnonymous={user?.isAnonymous ?? false}
+              loading={user === undefined}
+              onSignOut={() => void signOut()}
+            />
           ) : (
             <Link
               to="/auth"
@@ -98,11 +101,126 @@ export function AppNav() {
               }}
             >
               <LogIn className="size-3.5" />
-              <span className="hidden sm:inline">Sign in</span>
+              Sign in
             </Link>
           )}
         </div>
       </nav>
     </header>
+  )
+}
+
+function ProfileDropdown({
+  label,
+  initial,
+  email,
+  isAnonymous,
+  loading,
+  onSignOut,
+}: {
+  label: string
+  initial: string
+  email?: string | null
+  isAnonymous: boolean
+  loading?: boolean
+  onSignOut: () => void
+}) {
+  return (
+    <DropdownMenu.Root>
+      <DropdownMenu.Trigger asChild>
+        <button
+          type="button"
+          className={cn(
+            "flex items-center gap-2 rounded-xl border px-2.5 py-1.5 text-xs font-medium transition-colors",
+            "hover:border-[var(--border-hover)] focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--primary)]/30"
+          )}
+          style={{
+            borderColor: "var(--border)",
+            backgroundColor: "var(--surface-bg)",
+            color: "var(--foreground)",
+          }}
+          aria-label="Open profile menu"
+        >
+          <span
+            className="flex size-7 shrink-0 items-center justify-center rounded-full text-[11px] font-semibold"
+            style={{
+              backgroundColor: "rgba(159,18,57,0.12)",
+              color: "var(--primary)",
+            }}
+          >
+            {loading ? "…" : initial}
+          </span>
+          <span className="max-w-[7rem] truncate hidden sm:inline">{label}</span>
+          <ChevronDown className="size-3.5 opacity-60" />
+        </button>
+      </DropdownMenu.Trigger>
+
+      <DropdownMenu.Portal>
+        <DropdownMenu.Content
+          align="end"
+          sideOffset={8}
+          className={cn(
+            "z-[200] min-w-[14rem] rounded-xl border p-1.5 shadow-card",
+            "bg-[var(--card)] border-[var(--border)]"
+          )}
+        >
+          <div className="px-3 py-2.5 border-b border-[var(--border)] mb-1">
+            <p className="text-sm font-medium text-fg truncate">{label}</p>
+            {email && (
+              <p className="text-[11px] text-muted truncate mt-0.5">{email}</p>
+            )}
+            {isAnonymous && (
+              <p className="text-[10px] text-muted mt-1.5 uppercase tracking-wider">
+                Guest session
+              </p>
+            )}
+          </div>
+
+          <DropdownMenu.Item asChild>
+            <Link
+              to="/library"
+              className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-sm text-fg outline-none cursor-pointer hover:bg-[var(--card-hover)]"
+            >
+              <BookOpen className="size-4 text-muted" />
+              My library
+            </Link>
+          </DropdownMenu.Item>
+
+          <DropdownMenu.Item asChild>
+            <Link
+              to="/"
+              hash="generate"
+              className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-sm text-fg outline-none cursor-pointer hover:bg-[var(--card-hover)]"
+            >
+              <Sparkles className="size-4 text-muted" />
+              New story
+            </Link>
+          </DropdownMenu.Item>
+
+          {isAnonymous && (
+            <DropdownMenu.Item asChild>
+              <Link
+                to="/auth"
+                search={{ redirect: "/" }}
+                className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-sm text-fg outline-none cursor-pointer hover:bg-[var(--card-hover)]"
+              >
+                <User className="size-4 text-muted" />
+                Create account
+              </Link>
+            </DropdownMenu.Item>
+          )}
+
+          <DropdownMenu.Separator className="my-1 h-px bg-[var(--border)]" />
+
+          <DropdownMenu.Item
+            className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-sm text-fg outline-none cursor-pointer hover:bg-[var(--card-hover)]"
+            onSelect={onSignOut}
+          >
+            <LogOut className="size-4 text-muted" />
+            Sign out
+          </DropdownMenu.Item>
+        </DropdownMenu.Content>
+      </DropdownMenu.Portal>
+    </DropdownMenu.Root>
   )
 }

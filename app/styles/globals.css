@@ -239,6 +239,8 @@
     background-color: var(--nav-bg);
     border-bottom: 1px solid var(--border);
     box-shadow: 0 1px 0 rgba(255,255,255,0.03), 0 8px 32px rgba(0,0,0,0.08);
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
     transition: background-color 0.3s, border-color 0.3s;
   }
 

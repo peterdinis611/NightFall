@@ -3,7 +3,6 @@ import { createFileRoute } from "@tanstack/react-router"
 import { motion } from "framer-motion"
 import { ThemeAmbient } from "~/components/layout/ThemeAmbient"
 import { PromptForm } from "~/components/prompt/PromptForm"
-import { AppNav } from "~/components/layout/AppNav"
 import { AppBrand, AppTagline } from "~/components/shared/AppBrand"
 import { LandingHero } from "~/components/landing/LandingHero"
 import { LandingFeatures } from "~/components/landing/LandingFeatures"
@@ -27,8 +26,6 @@ function HomePage() {
       </div>
 
       <div className="relative z-10">
-      <AppNav />
-
       <LandingHero onScrollToForm={scrollToForm} />
 
       <LandingMarquee />
