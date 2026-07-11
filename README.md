@@ -99,21 +99,25 @@ Open [http://localhost:3000](http://localhost:3000)
 
 ## Audio
 
-Place ambient audio files in `public/audio/` (MP3 format):
+Place ambient audio files in `public/audio/` (WAV format). Generate them with:
+
+```bash
+npm run generate:audio
+```
 
 ```
 public/audio/
-  wind_low.mp3
-  heartbeat_low.mp3
-  heartbeat_high.mp3
-  static_burst.mp3
-  drip_cave.mp3
-  choir_dissonant.mp3
-  chase_strings.mp3
-  breathing_close.mp3
-  deep_drone.mp3
-  door_creak.mp3
-  water_distant.mp3
+  wind_low.wav
+  heartbeat_low.wav
+  heartbeat_high.wav
+  static_burst.wav
+  drip_cave.wav
+  choir_dissonant.wav
+  chase_strings.wav
+  breathing_close.wav
+  deep_drone.wav
+  door_creak.wav
+  water_distant.wav
 ```
 
 Audio is optional — stories work fine without it. The `SceneAudio` component cross-fades between scenes at 35% volume.

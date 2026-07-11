@@ -5,6 +5,7 @@ import { ErrorScreen } from "~/components/shared/ErrorScreen"
 import { NotFoundScreen } from "~/components/shared/NotFoundScreen"
 import { ScrollBackdrop } from "~/components/layout/ScrollBackdrop"
 import { AppNav } from "~/components/layout/AppNav"
+import { AmbientSoundProvider } from "~/lib/ambientSound"
 
 export const Route = createRootRoute({
   component: RootLayout,
@@ -17,14 +18,14 @@ export const Route = createRootRoute({
 
 function RootLayout() {
   return (
-    <>
+    <AmbientSoundProvider>
       <ScrollBackdrop />
       <div className="relative z-10 min-h-screen text-fg">
         <AppNav />
         <ContentWarning />
         <Outlet />
       </div>
-    </>
+    </AmbientSoundProvider>
   )
 }
 

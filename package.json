@@ -10,6 +10,7 @@
     "convex:dev": "convex dev",
     "convex:deploy": "convex deploy",
     "auth:setup": "node scripts/setup-auth-env.mjs",
+    "generate:audio": "node scripts/generate-audio.mjs",
     "tsr:generate": "tsr generate",
     "test": "vitest run",
     "test:watch": "vitest"

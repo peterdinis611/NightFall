@@ -15,6 +15,7 @@ import {
 } from "lucide-react"
 import { motion } from "framer-motion"
 import { ThemeToggle } from "~/components/shared/ThemeToggle"
+import { AmbientSoundToggle } from "~/components/shared/AmbientSoundToggle"
 import { AppBrand } from "~/components/shared/AppBrand"
 import { useTheme } from "~/lib/theme"
 import { cn } from "~/lib/utils"
@@ -76,6 +77,7 @@ export function AppNav() {
         </Link>
 
         <div className="flex items-center gap-2">
+          <AmbientSoundToggle />
           <ThemeToggle />
 
           {isLoading && !signedIn ? (
