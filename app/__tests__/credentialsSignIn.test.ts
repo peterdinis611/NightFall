@@ -4,7 +4,7 @@ import {
   hasStoredAuthSession,
   resetAuthTokensCollection,
 } from "~/db/authTokens"
-import { callAuthSignIn, passwordSignIn } from "./credentialsSignIn"
+import { callAuthSignIn, passwordSignIn } from "~/lib/credentialsSignIn"
 
 describe("credentialsSignIn", () => {
   beforeEach(() => {

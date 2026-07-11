@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach } from "vitest"
-import { createMemoryStorage } from "./memoryStorage"
+import { createMemoryStorage } from "~/db/memoryStorage"
 import {
   AUTH_TOKENS_STORAGE_KEY,
   clearStoredAuthSession,
@@ -7,7 +7,7 @@ import {
   hasStoredAuthSession,
   resetAuthTokensCollection,
   storeAuthTokens,
-} from "./authTokens"
+} from "~/db/authTokens"
 
 describe("authTokens collection", () => {
   beforeEach(() => {

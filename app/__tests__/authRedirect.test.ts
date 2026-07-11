@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest"
-import { authNavigateOptions, getAuthRedirectPath } from "./authRedirect"
+import { authNavigateOptions, getAuthRedirectPath } from "~/lib/authRedirect"
 
 describe("getAuthRedirectPath", () => {
   it("defaults to home", () => {

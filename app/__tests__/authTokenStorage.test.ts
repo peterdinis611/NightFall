@@ -1,7 +1,7 @@
 import { describe, it, expect, beforeEach } from "vitest"
-import { createMemoryStorage } from "./memoryStorage"
-import { createAuthTokenStorage } from "./authTokenStorage"
-import { createAuthTokensCollection, resetAuthTokensCollection } from "./authTokens"
+import { createMemoryStorage } from "~/db/memoryStorage"
+import { createAuthTokenStorage } from "~/db/authTokenStorage"
+import { createAuthTokensCollection, resetAuthTokensCollection } from "~/db/authTokens"
 
 describe("createAuthTokenStorage", () => {
   beforeEach(() => {
