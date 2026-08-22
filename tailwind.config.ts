@@ -6,9 +6,9 @@ export default {
   theme: {
     extend: {
       fontFamily: {
-        serif: ["'Crimson Pro'", "'Georgia'", "serif"],
-        mono:  ["'JetBrains Mono'", "monospace"],
-        sans:  ["'Inter'", "system-ui", "sans-serif"],
+        serif: ["'Cormorant Garamond'", "'Georgia'", "serif"],
+        mono:  ["'IBM Plex Mono'", "monospace"],
+        sans:  ["'Literata'", "'Georgia'", "serif"],
       },
       colors: {
         night: {
@@ -74,6 +74,8 @@ export default {
         "glitch-1":     "glitch1 0.15s steps(2) forwards",
         "glitch-2":     "glitch2 0.15s steps(2) forwards",
         "pulse-slow":   "pulseSlow 4s ease-in-out infinite",
+        marquee:        "marquee 22s linear infinite",
+        "marquee-reverse": "marquee-reverse 26s linear infinite",
       },
       keyframes: {
         fogDrift: {
@@ -145,6 +147,14 @@ export default {
         pulseSlow: {
           "0%, 100%": { opacity: "0.5" },
           "50%":      { opacity: "1" },
+        },
+        marquee: {
+          from: { transform: "translate3d(0, 0, 0)" },
+          to:   { transform: "translate3d(-50%, 0, 0)" },
+        },
+        "marquee-reverse": {
+          from: { transform: "translate3d(-50%, 0, 0)" },
+          to:   { transform: "translate3d(0, 0, 0)" },
         },
       },
       backgroundImage: {

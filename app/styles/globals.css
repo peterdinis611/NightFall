@@ -1,4 +1,4 @@
-@import url('https://fonts.googleapis.com/css2?family=Crimson+Pro:ital,wght@0,400;0,600;1,400;1,600&family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,400;0,500;0,600;0,700;1,400;1,500;1,600&family=Literata:ital,opsz,wght@0,7..72,400;0,7..72,500;1,7..72,400&family=IBM+Plex+Mono:wght@400;500&display=swap');
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
@@ -28,26 +28,29 @@
     color-scheme: light;
   }
 
-  /* Nightfall — deep wine & violet dark */
+  /* Nightfall — void black, dried blood, bone white */
   .dark {
-    --background:    #08080f;
-    --foreground:    #ddd8ec;
-    --card:          rgba(14, 13, 24, 0.82);
-    --card-hover:    rgba(20, 18, 34, 0.92);
-    --border:        rgba(255, 255, 255, 0.06);
-    --border-hover:  rgba(255, 255, 255, 0.11);
-    --primary:       #c41e3a;
-    --primary-hover: #e02545;
-    --primary-glow:  rgba(196, 30, 58, 0.16);
-    --accent:        #6d5cad;
-    --accent-glow:   rgba(109, 92, 173, 0.14);
-    --muted:         #8882a0;
-    --surface-bg:    rgba(14, 13, 24, 0.55);
-    --nav-bg:        rgba(8, 8, 15, 0.82);
-    --input-bg:      rgba(10, 9, 18, 0.65);
-    --shadow-card:   0 8px 40px rgba(0,0,0,0.5), inset 0 1px 0 rgba(255,255,255,0.03);
-    --vignette:      rgba(8, 8, 15, 0.78);
-    --grain-opacity: 0.028;
+    --background:    #060508;
+    --foreground:    #e8e0d4;
+    --card:          rgba(10, 7, 11, 0.94);
+    --card-hover:    rgba(16, 10, 14, 0.98);
+    --border:        rgba(139, 21, 56, 0.14);
+    --border-hover:  rgba(180, 30, 50, 0.28);
+    --primary:       #b91c1c;
+    --primary-hover: #dc2626;
+    --primary-glow:  rgba(185, 28, 28, 0.28);
+    --accent:        #8b1538;
+    --accent-glow:   rgba(139, 21, 56, 0.14);
+    --muted:         #6b6360;
+    --surface-bg:    rgba(8, 5, 9, 0.82);
+    --nav-bg:        rgba(6, 5, 8, 0.92);
+    --input-bg:      rgba(6, 4, 7, 0.9);
+    --shadow-card:   0 16px 56px rgba(0,0,0,0.7), 0 0 0 1px rgba(139,21,56,0.1);
+    --vignette:      rgba(4, 3, 5, 0.94);
+    --grain-opacity: 0.055;
+    --bone:          #e8e0d4;
+    --blood:         #b91c1c;
+    --void:          #060508;
     color-scheme: dark;
   }
 
@@ -58,13 +61,18 @@
   html {
     background-color: var(--background);
     color: var(--foreground);
-    font-family: 'Inter', system-ui, sans-serif;
+    font-family: 'Literata', 'Georgia', serif;
     scroll-behavior: smooth;
   }
 
   @media (prefers-reduced-motion: reduce) {
     html {
       scroll-behavior: auto;
+    }
+
+    .animate-marquee,
+    .animate-marquee-reverse {
+      animation: none !important;
     }
   }
 
@@ -83,7 +91,13 @@
   }
 
   .dark ::selection {
-    background-color: rgba(196, 30, 58, 0.28);
+    background-color: rgba(220, 38, 38, 0.35);
+  }
+
+  .dark body {
+    background-image:
+      radial-gradient(ellipse 80% 50% at 15% 0%, rgba(139, 21, 56, 0.07) 0%, transparent 55%),
+      radial-gradient(ellipse 60% 40% at 95% 100%, rgba(80, 10, 20, 0.12) 0%, transparent 50%);
   }
 
   ::-webkit-scrollbar { width: 5px; }
@@ -255,11 +269,11 @@
 
   .text-gradient {
     @apply bg-clip-text text-transparent;
-    background-image: linear-gradient(135deg, #9f1239 0%, #5b4b8a 55%, #7c3aed 100%);
+    background-image: linear-gradient(135deg, #9f1239 0%, #6f0f28 100%);
   }
 
   .dark .text-gradient {
-    background-image: linear-gradient(135deg, #e8a0a8 0%, #c41e3a 45%, #6d5cad 100%);
+    background-image: linear-gradient(160deg, #fca5a5 0%, #b91c1c 45%, #7f1d1d 100%);
   }
 
   .text-gradient-subtle {
@@ -268,31 +282,78 @@
   }
 
   .dark .text-gradient-subtle {
-    background-image: linear-gradient(135deg, #e8e4f0 0%, #9894b0 100%);
+    background-image: linear-gradient(135deg, #e8e0d4 0%, #6b6360 100%);
   }
 
   .horror-title {
-    text-shadow:
-      0 0 50px rgba(91, 75, 138, 0.1),
-      0 1px 2px rgba(20, 18, 31, 0.12);
+    text-shadow: 0 1px 2px rgba(20, 18, 31, 0.12);
   }
 
   .dark .horror-title {
     text-shadow:
-      0 0 50px rgba(196, 30, 58, 0.12),
-      0 0 90px rgba(109, 92, 173, 0.07),
-      0 2px 6px rgba(0, 0, 0, 0.7);
+      0 0 80px rgba(185, 28, 28, 0.15),
+      0 2px 12px rgba(0, 0, 0, 0.95);
   }
 
   .horror-word {
     @apply bg-clip-text text-transparent;
-    background-image: linear-gradient(180deg, #9f1239 0%, #5b4b8a 60%, #7c3aed 100%);
+    background-image: linear-gradient(180deg, #9f1239 0%, #6f0f28 100%);
     filter: drop-shadow(0 0 14px rgba(159, 18, 57, 0.25));
   }
 
   .dark .horror-word {
-    background-image: linear-gradient(180deg, #e8a0a8 0%, #c41e3a 38%, #6d5cad 100%);
-    filter: drop-shadow(0 0 18px rgba(196, 30, 58, 0.4));
+    background-image: linear-gradient(180deg, #fecaca 0%, #b91c1c 50%, #450a0a 100%);
+    filter: drop-shadow(0 0 28px rgba(185, 28, 28, 0.5));
+  }
+
+  .dark .surface {
+    box-shadow: var(--shadow-card);
+  }
+
+  .dark .nav-glass {
+    box-shadow: 0 1px 0 rgba(139, 21, 56, 0.12), 0 12px 40px rgba(0, 0, 0, 0.55);
+  }
+
+  /* ── Editorial horror utilities ── */
+  .editorial-label {
+    @apply font-mono text-[10px] uppercase tracking-[0.35em] font-medium;
+    color: var(--blood, #b91c1c);
+  }
+
+  .dark .editorial-label {
+    color: rgba(185, 28, 28, 0.75);
+  }
+
+  .manuscript-rule {
+    @apply h-px w-full;
+    background: linear-gradient(90deg, transparent, rgba(139,21,56,0.35) 20%, rgba(139,21,56,0.35) 80%, transparent);
+  }
+
+  .manuscript-card {
+    @apply relative overflow-hidden;
+    background: linear-gradient(165deg, rgba(12,8,10,0.98) 0%, rgba(8,5,7,0.95) 100%);
+    border: 1px solid rgba(139, 21, 56, 0.12);
+    box-shadow: 0 20px 60px rgba(0,0,0,0.5), inset 0 1px 0 rgba(232,224,212,0.03);
+  }
+
+  .manuscript-card::before {
+    content: "";
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 2px;
+    background: linear-gradient(90deg, transparent, var(--blood, #b91c1c), transparent);
+    opacity: 0.5;
+  }
+
+  .ritual-index {
+    @apply font-mono text-[10px] tabular-nums tracking-widest;
+    color: rgba(185, 28, 28, 0.6);
+  }
+
+  .diagonal-section {
+    clip-path: polygon(0 3%, 100% 0, 100% 97%, 0 100%);
   }
 
   .horror-flicker {
@@ -312,11 +373,10 @@
   }
 
   .dark .btn-summon {
-    background: linear-gradient(135deg, #c41e3a, #6d5cad, #c41e3a);
+    background: linear-gradient(135deg, #b91c1c, #450a0a, #b91c1c);
     box-shadow:
-      0 0 28px rgba(196, 30, 58, 0.3),
-      0 0 56px rgba(109, 92, 173, 0.1),
-      0 8px 32px rgba(0, 0, 0, 0.45);
+      0 0 40px rgba(185, 28, 28, 0.35),
+      0 8px 32px rgba(0, 0, 0, 0.65);
   }
 
   .btn-summon:hover {
@@ -342,7 +402,7 @@
   }
 
   .dark .btn-summon-inner {
-    background: linear-gradient(180deg, #c41e3a 0%, #6d1528 100%);
+    background: linear-gradient(180deg, #dc2626 0%, #450a0a 100%);
   }
 
   .stat-tomb {
@@ -461,10 +521,32 @@
   .dark .scroll-backdrop--gradient {
     background-color: var(--background);
     background-image:
-      radial-gradient(ellipse 85% 55% at 50% -8%, rgba(109,92,173,0.14) 0%, transparent 52%),
-      radial-gradient(ellipse 65% 48% at 98% 88%, rgba(196,30,58,0.07) 0%, transparent 46%),
-      radial-gradient(ellipse 55% 42% at 2% 68%, rgba(20,18,35,0.55) 0%, transparent 48%),
-      linear-gradient(180deg, #08080f 0%, #0c0b16 100%);
+      radial-gradient(ellipse 70% 45% at 10% 0%, rgba(139,21,56,0.1) 0%, transparent 55%),
+      radial-gradient(ellipse 55% 40% at 100% 100%, rgba(69,10,10,0.18) 0%, transparent 50%),
+      linear-gradient(180deg, #060508 0%, #0a0608 50%, #060508 100%);
+  }
+
+  .dark .scroll-backdrop--vignette {
+    background:
+      radial-gradient(ellipse at center, transparent 25%, var(--vignette) 100%),
+      radial-gradient(ellipse 100% 30% at 50% 100%, rgba(127,29,29,0.15) 0%, transparent 60%);
+  }
+
+  .scroll-backdrop--scanlines {
+    z-index: 2;
+    opacity: 0;
+    pointer-events: none;
+    background: repeating-linear-gradient(
+      0deg,
+      transparent,
+      transparent 2px,
+      rgba(0, 0, 0, 0.15) 2px,
+      rgba(0, 0, 0, 0.15) 4px
+    );
+  }
+
+  .dark .scroll-backdrop--scanlines {
+    opacity: 0.04;
   }
 
   .scroll-backdrop--grain {

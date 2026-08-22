@@ -60,18 +60,30 @@ export function LandingHero({ onScrollToForm }: LandingHeroProps) {
         style={{
           background: theme === "light"
             ? "radial-gradient(ellipse, rgba(255,240,200,0.18) 0%, rgba(159,18,57,0.05) 35%, rgba(91,75,138,0.04) 60%, transparent 72%)"
-            : "radial-gradient(ellipse, rgba(196,30,58,0.07) 0%, rgba(109,92,173,0.05) 40%, transparent 70%)",
+            : "radial-gradient(ellipse, rgba(185,28,28,0.12) 0%, rgba(69,10,10,0.06) 40%, transparent 68%)",
         }}
       />
 
-      {/* Vignette — dark mode only */}
+      {/* Vignette — oppressive darkness */}
       {theme === "dark" && (
-        <div
-          className="absolute inset-0 pointer-events-none"
-          style={{
-            background: "radial-gradient(ellipse at center, transparent 20%, rgba(5,5,8,0.85) 100%)",
-          }}
-        />
+        <>
+          <div
+            className="absolute inset-0 pointer-events-none"
+            style={{
+              background:
+                "radial-gradient(ellipse at center, transparent 15%, rgba(2,2,4,0.92) 100%)",
+            }}
+          />
+          <motion.div
+            className="absolute inset-0 pointer-events-none"
+            style={{
+              background:
+                "radial-gradient(ellipse at center, transparent 50%, rgba(127,29,29,0.12) 100%)",
+            }}
+            animate={{ opacity: [0.4, 0.75, 0.4] }}
+            transition={{ duration: 6, repeat: Infinity, ease: "easeInOut" }}
+          />
+        </>
       )}
 
       <div className={`relative z-10 text-center max-w-4xl mx-auto transition-opacity duration-75 ${flicker ? "opacity-70" : "opacity-100"}`}>
@@ -82,8 +94,9 @@ export function LandingHero({ onScrollToForm }: LandingHeroProps) {
           transition={{ duration: 0.8, delay: 0.2 }}
           className="inline-flex items-center gap-2.5 rounded-full border px-5 py-2 mb-10 shadow-glow-sm backdrop-blur-sm"
           style={{
-            borderColor: theme === "light" ? "rgba(159,18,57,0.2)" : "rgba(196,30,58,0.3)",
-            backgroundColor: theme === "light" ? "rgba(255,255,255,0.6)" : "rgba(14,13,24,0.7)",
+            borderColor: theme === "light" ? "rgba(159,18,57,0.2)" : "rgba(220,38,38,0.35)",
+            backgroundColor: theme === "light" ? "rgba(255,255,255,0.6)" : "rgba(8,4,12,0.85)",
+            boxShadow: theme === "dark" ? "0 0 24px rgba(185,28,28,0.2), inset 0 0 20px rgba(69,10,10,0.08)" : undefined,
           }}
         >
           <motion.span
@@ -127,7 +140,7 @@ export function LandingHero({ onScrollToForm }: LandingHeroProps) {
                   <span aria-hidden className="absolute inset-0 horror-word italic animate-glitch-1 opacity-80 text-blood-400">
                     afraid
                   </span>
-                  <span aria-hidden className="absolute inset-0 horror-word italic animate-glitch-2 opacity-60 text-violet-400">
+                  <span aria-hidden className="absolute inset-0 horror-word italic animate-glitch-2 opacity-60 text-blood-700">
                     afraid
                   </span>
                 </>

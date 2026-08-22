@@ -27,8 +27,8 @@ export function getAppName(theme: Theme): string {
 function getInitialTheme(): Theme {
   if (typeof window === "undefined") return "dark"
   const stored = localStorage.getItem(STORAGE_KEY)
-  if (stored === "light" || stored === "dark") return stored
-  return window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light"
+  if (stored === "light") return "light"
+  return "dark"
 }
 
 function applyTheme(theme: Theme) {
@@ -37,7 +37,7 @@ function applyTheme(theme: Theme) {
   root.style.colorScheme = theme
   const meta = document.querySelector('meta[name="theme-color"]')
   if (meta) {
-    meta.setAttribute("content", theme === "dark" ? "#08080f" : "#e4e9f2")
+    meta.setAttribute("content", theme === "dark" ? "#060508" : "#e4e9f2")
   }
   document.title = `${getAppName(theme)} — AI Horror Story Generator`
 }

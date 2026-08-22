@@ -7,6 +7,7 @@ export function ScrollBackdrop() {
       <div className="scroll-backdrop scroll-backdrop--gradient" aria-hidden />
       <div className="scroll-backdrop scroll-backdrop--grain" aria-hidden />
       <div className="scroll-backdrop scroll-backdrop--vignette" aria-hidden />
+      <div className="scroll-backdrop scroll-backdrop--scanlines" aria-hidden />
     </>
   )
 }
