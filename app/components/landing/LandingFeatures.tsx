@@ -31,12 +31,12 @@ const STEPS = [
 
 const stagger = {
   hidden: {},
-  show: { transition: { staggerChildren: 0.12 } },
+  show: { transition: { staggerChildren: 0.06 } },
 }
 
 const fadeUp = {
-  hidden: { opacity: 0, y: 28 },
-  show: { opacity: 1, y: 0, transition: { duration: 0.65, ease: [0.22, 1, 0.36, 1] } },
+  hidden: { opacity: 0, y: 20 },
+  show: { opacity: 1, y: 0, transition: { duration: 0.4, ease: [0.22, 1, 0.36, 1] } },
 }
 
 export function LandingFeatures() {
@@ -58,7 +58,7 @@ export function LandingFeatures() {
         <motion.div
           initial={{ opacity: 0, x: -32 }}
           animate={inView ? { opacity: 1, x: 0 } : {}}
-          transition={{ duration: 0.8, ease: [0.22, 1, 0.36, 1] }}
+          transition={{ duration: 0.45, ease: [0.22, 1, 0.36, 1] }}
           className="mb-20 sm:mb-28 max-w-2xl"
         >
           <p className="editorial-label mb-5">How it works</p>
@@ -97,14 +97,12 @@ export function LandingFeatures() {
               >
                 <div className="relative shrink-0">
                   <motion.div
-                    className="flex size-16 sm:size-[4.5rem] items-center justify-center border border-blood-900/25 dark:border-blood-800/30 bg-[var(--surface-bg)] dark:bg-[rgba(10,6,8,0.9)]"
+                    className="flex size-16 sm:size-[4.5rem] items-center justify-center border border-[var(--border)] bg-[var(--surface-bg)]"
                     style={{
                       clipPath: "polygon(50% 0%, 100% 25%, 100% 75%, 50% 100%, 0% 75%, 0% 25%)",
                     }}
-                    whileHover={{ scale: 1.06, borderColor: "rgba(185,28,28,0.4)" }}
-                    transition={{ duration: 0.25 }}
                   >
-                    <step.icon className="size-6 text-blood-600/70 dark:text-blood-500/80" strokeWidth={1.5} />
+                    <step.icon className="size-6 text-blood-500 dark:text-blood-400" strokeWidth={1.5} />
                   </motion.div>
                   <span className="ritual-index absolute -top-3 -right-2 sm:-top-2 sm:left-1/2 sm:-translate-x-1/2 sm:-right-auto">
                     {step.step}
@@ -130,16 +128,16 @@ export function LandingFeatures() {
             <motion.article
               key={feat.title}
               variants={fadeUp}
-              className={`manuscript-card p-7 sm:p-8 group cursor-default transition-transform duration-300 hover:-translate-y-1 ${
+              className={`manuscript-card p-7 sm:p-8 group cursor-default ${
                 i === 1 ? "lg:mt-10" : i === 2 ? "lg:mt-4" : ""
               }`}
             >
               <div className="flex items-start justify-between mb-6">
-                <span className="font-serif text-3xl text-blood-800/30 dark:text-blood-900/50 font-light italic">
+                <span className="font-serif text-3xl text-blood-500/25 dark:text-blood-400/30 font-light italic">
                   {feat.roman}
                 </span>
-                <div className="flex size-10 items-center justify-center border border-blood-900/15 group-hover:border-blood-700/30 transition-colors">
-                  <feat.icon className="size-4 text-blood-600/60 dark:text-blood-500/70" strokeWidth={1.5} />
+                <div className="flex size-10 items-center justify-center border border-[var(--border)] group-hover:border-[var(--border-hover)] transition-colors">
+                  <feat.icon className="size-4 text-blood-500 dark:text-blood-400" strokeWidth={1.5} />
                 </div>
               </div>
               <h3 className="font-serif text-xl sm:text-2xl font-semibold text-fg mb-3 leading-tight">

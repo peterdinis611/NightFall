@@ -80,12 +80,20 @@ function GeneratePage() {
               Something went wrong in the dark.
             </p>
             <p className="text-night-500 text-sm mb-6">{story?.errorMessage}</p>
-            <button
-              onClick={() => navigate({ to: "/" })}
-              className="btn-ghost inline-flex items-center gap-2"
-            >
-              Try again
-            </button>
+            <div className="flex flex-col sm:flex-row items-center justify-center gap-3">
+              <button
+                onClick={() => navigate({ to: "/library" })}
+                className="btn-ghost inline-flex items-center gap-2"
+              >
+                Open library
+              </button>
+              <button
+                onClick={() => navigate({ to: "/" })}
+                className="btn-primary inline-flex items-center gap-2 !py-2.5"
+              >
+                Try again
+              </button>
+            </div>
           </motion.div>
         ) : (
           <motion.div

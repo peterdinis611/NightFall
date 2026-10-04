@@ -1,6 +1,6 @@
 // @ts-nocheck
 import { v } from "convex/values"
-import { action } from "./_generated/server"
+import { internalAction } from "./_generated/server"
 import { internal } from "./_generated/api"
 import OpenAI from "openai"
 
@@ -53,33 +53,36 @@ const TONE_MODIFIERS: Record<string, string> = {
 
 const SCENE_COUNTS: Record<string, number> = { short: 4, medium: 6, long: 8 }
 
-// ── Story generation action ────────────────────────────────────────────────
-
-export const generateStory = action({
+/**
+ * Scheduled from createStoryShell / retryGeneration — does not depend on the browser tab.
+ */
+export const generateStory = internalAction({
   args: {
     storyId: v.id("stories"),
-    prompt:  v.string(),
-    theme:   v.string(),
-    tone:    v.union(
-               v.literal("atmospheric"),
-               v.literal("psychological"),
-               v.literal("jumpscare"),
-               v.literal("graphic"),
-             ),
-    length:  v.union(v.literal("short"), v.literal("medium"), v.literal("long")),
   },
-  handler: async (ctx, args) => {
+  handler: async (ctx, { storyId }) => {
+    const story = await ctx.runQuery(internal.stories.getStoryForGeneration, { storyId })
+    if (!story) return
+    if (story.status !== "generating") return
+
+    if (!process.env.OPENAI_API_KEY) {
+      await ctx.runMutation(internal.stories.updateStoryStatus, {
+        storyId,
+        status: "failed",
+        errorMessage: "OPENAI_API_KEY is not set in Convex environment variables.",
+      })
+      return
+    }
+
     const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY })
 
     const userMessage = [
-      `USER PROMPT: ${args.prompt}`,
-      `TONE: ${args.tone}`,
-      `TONE MODIFIER: ${TONE_MODIFIERS[args.tone]}`,
-      `LENGTH: ${args.length} (${SCENE_COUNTS[args.length]} scenes)`,
-      `THEME/SETTING: ${args.theme}`,
+      `USER PROMPT: ${story.prompt}`,
+      `TONE: ${story.tone}`,
+      `TONE MODIFIER: ${TONE_MODIFIERS[story.tone] ?? TONE_MODIFIERS.atmospheric}`,
+      `LENGTH: ${story.length} (${SCENE_COUNTS[story.length] ?? 6} scenes)`,
+      `THEME/SETTING: ${story.theme}`,
     ].join("\n")
-
-    let parsed: StoryJSON | null = null
 
     try {
       const response = await openai.chat.completions.create({
@@ -94,48 +97,51 @@ export const generateStory = action({
       })
 
       const raw = response.choices[0]?.message?.content ?? ""
-      parsed = JSON.parse(raw) as StoryJSON
+      const parsed = JSON.parse(raw) as StoryJSON
+
+      if (!parsed?.title || !Array.isArray(parsed.scenes) || parsed.scenes.length === 0) {
+        throw new Error("AI returned an empty or invalid story payload.")
+      }
+
+      const sceneRows = parsed.scenes.map((s, i) => {
+        if (!s?.text?.trim()) {
+          throw new Error(`Scene ${i + 1} is missing text.`)
+        }
+        const wordCount = s.text.trim().split(/\s+/).length
+        return {
+          order:       i,
+          text:        s.text.trim(),
+          mood:        validateMood(s.mood),
+          soundCue:    validateSoundCue(s.soundCue),
+          imagePrompt: s.imagePrompt,
+          wordCount,
+          readingMs:   Math.round((wordCount / 200) * 60 * 1000),
+        }
+      })
+
+      const totalWords = sceneRows.reduce((a, s) => a + s.wordCount, 0)
+
+      await ctx.runMutation(internal.stories.saveScenes, {
+        storyId,
+        scenes: sceneRows,
+      })
+
+      await ctx.runMutation(internal.stories.updateStoryStatus, {
+        storyId,
+        status: "ready",
+        title: parsed.title.trim() || "Untitled nightmare",
+        sceneCount: sceneRows.length,
+        wordCount: totalWords,
+      })
     } catch (err) {
       await ctx.runMutation(internal.stories.updateStoryStatus, {
-        storyId: args.storyId,
+        storyId,
         status: "failed",
         errorMessage: err instanceof Error ? err.message : "Generation failed",
       })
-      return
     }
-
-    // Build scene rows
-    const sceneRows = parsed.scenes.map((s, i) => {
-      const wordCount = s.text.split(/\s+/).length
-      return {
-        order:       i,
-        text:        s.text,
-        mood:        validateMood(s.mood),
-        soundCue:    validateSoundCue(s.soundCue),
-        imagePrompt: s.imagePrompt,
-        wordCount,
-        readingMs:   Math.round((wordCount / 200) * 60 * 1000), // 200 wpm
-      }
-    })
-
-    const totalWords = sceneRows.reduce((a, s) => a + s.wordCount, 0)
-
-    await ctx.runMutation(internal.stories.saveScenes, {
-      storyId: args.storyId,
-      scenes:  sceneRows,
-    })
-
-    await ctx.runMutation(internal.stories.updateStoryStatus, {
-      storyId:   args.storyId,
-      status:    "ready",
-      title:     parsed.title,
-      sceneCount: sceneRows.length,
-      wordCount:  totalWords,
-    })
   },
 })
-
-// ── Type helpers ────────────────────────────────────────────────────────────
 
 interface StoryJSON {
   title: string

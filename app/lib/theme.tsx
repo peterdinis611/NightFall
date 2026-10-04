@@ -37,7 +37,7 @@ function applyTheme(theme: Theme) {
   root.style.colorScheme = theme
   const meta = document.querySelector('meta[name="theme-color"]')
   if (meta) {
-    meta.setAttribute("content", theme === "dark" ? "#060508" : "#e4e9f2")
+    meta.setAttribute("content", theme === "dark" ? "#08080c" : "#e4e9f2")
   }
   document.title = `${getAppName(theme)} — AI Horror Story Generator`
 }

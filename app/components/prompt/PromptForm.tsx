@@ -1,15 +1,22 @@
 "use client"
-import { useState } from "react"
+import { useState, useEffect, useRef } from "react"
 import { useNavigate } from "@tanstack/react-router"
-import { useMutation, useAction } from "convex/react"
+import { useMutation } from "convex/react"
 import { useConvexAuth } from "convex/react"
 import { api } from "@convex/_generated/api"
 import { cn } from "~/lib/utils"
 import { ToneSelector, type Tone } from "./ToneSelector"
 import { LengthSelector, type Length } from "./LengthSelector"
 import { ThemeGrid } from "./ThemeGrid"
-import { Skull, Sparkles, AlertCircle } from "lucide-react"
+import { Skull, Sparkles, AlertCircle, Ghost, LogIn } from "lucide-react"
 import { motion } from "framer-motion"
+import { anonymousSignIn } from "~/lib/credentialsSignIn"
+import { formatAuthError } from "~/lib/formatAuthError"
+import {
+  clearPendingPrompt,
+  readPendingPrompt,
+  savePendingPrompt,
+} from "~/lib/pendingPrompt"
 
 const PLACEHOLDER_PROMPTS = [
   "Something lives in the walls of my apartment. It knows my name.",
@@ -22,8 +29,8 @@ const PLACEHOLDER_PROMPTS = [
 export function PromptForm() {
   const navigate = useNavigate()
   const { isAuthenticated, isLoading: authLoading } = useConvexAuth()
-  const createShell  = useMutation(api.stories.createStoryShell)
-  const generateStory = useAction(api.actions.generateStory)
+  const createShell = useMutation(api.stories.createStoryShell)
+  const autoSubmitRef = useRef(false)
 
   const [prompt, setPrompt]   = useState("")
   const [theme, setTheme]     = useState("")
@@ -36,33 +43,28 @@ export function PromptForm() {
     () => PLACEHOLDER_PROMPTS[Math.floor(Math.random() * PLACEHOLDER_PROMPTS.length)]
   )
 
-  async function handleSubmit(e: React.FormEvent) {
-    e.preventDefault()
-    if (!prompt.trim()) return
-
-    if (!authLoading && !isAuthenticated) {
-      navigate({ to: "/auth", search: { redirect: "/" } })
-      return
-    }
-
+  async function startGeneration(values: {
+    prompt: string
+    theme: string
+    tone: Tone
+    length: Length
+  }) {
     setLoading(true)
     setError(null)
 
     try {
       const { storyId, slug } = await createShell({
-        prompt: prompt.trim(),
-        theme:  theme || prompt.trim(),
-        tone,
-        length,
+        prompt: values.prompt.trim(),
+        theme:  values.theme || values.prompt.trim(),
+        tone: values.tone,
+        length: values.length,
       })
-
+      clearPendingPrompt()
       navigate({ to: "/generate", search: { storyId, slug } })
-
-      generateStory({ storyId, prompt: prompt.trim(), theme: theme || prompt.trim(), tone, length })
-        .catch(console.error)
     } catch (err) {
       const msg = err instanceof Error ? err.message : "Something went wrong"
       if (msg.toLowerCase().includes("authentication")) {
+        savePendingPrompt(values)
         navigate({ to: "/auth", search: { redirect: "/" } })
         return
       }
@@ -71,13 +73,68 @@ export function PromptForm() {
     }
   }
 
+  // After guest / auth return — restore draft and submit once
+  useEffect(() => {
+    if (authLoading || !isAuthenticated || autoSubmitRef.current) return
+    const pending = readPendingPrompt()
+    if (!pending?.prompt?.trim()) return
+
+    autoSubmitRef.current = true
+    setPrompt(pending.prompt)
+    setTheme(pending.theme)
+    setTone(pending.tone)
+    setLength(pending.length)
+    void startGeneration(pending)
+  }, [authLoading, isAuthenticated])
+
+  async function handleSubmit(e: React.FormEvent) {
+    e.preventDefault()
+    if (!prompt.trim() || loading) return
+
+    const values = {
+      prompt: prompt.trim(),
+      theme,
+      tone,
+      length,
+    }
+
+    if (!authLoading && !isAuthenticated) {
+      setLoading(true)
+      setError(null)
+      savePendingPrompt(values)
+      try {
+        await anonymousSignIn("/")
+      } catch (err) {
+        setError(formatAuthError(err, "signIn"))
+        setLoading(false)
+      }
+      return
+    }
+
+    await startGeneration(values)
+  }
+
+  async function handleGuestClick() {
+    if (!prompt.trim() || loading) return
+    setLoading(true)
+    setError(null)
+    savePendingPrompt({ prompt: prompt.trim(), theme, tone, length })
+    try {
+      await anonymousSignIn("/")
+    } catch (err) {
+      setError(formatAuthError(err, "signIn"))
+      setLoading(false)
+    }
+  }
+
+  const needsAuth = !authLoading && !isAuthenticated
+
   return (
     <motion.form
       onSubmit={handleSubmit}
       initial={false}
       className="flex flex-col gap-5 w-full"
     >
-      {/* Main textarea */}
       <div className="relative group">
         <textarea
           value={prompt}
@@ -131,15 +188,41 @@ export function PromptForm() {
         {loading ? (
           <>
             <Sparkles className="size-5 animate-shimmer" />
-            Summoning your story…
+            {needsAuth ? "Entering as guest…" : "Summoning your story…"}
           </>
         ) : (
           <>
             <Skull className="size-5" />
-            Generate Story
+            {needsAuth ? "Generate as guest" : "Generate Story"}
           </>
         )}
       </motion.button>
+
+      {needsAuth && (
+        <div className="flex flex-col sm:flex-row items-center justify-center gap-3 text-xs text-muted">
+          <button
+            type="button"
+            onClick={handleGuestClick}
+            disabled={!prompt.trim() || loading}
+            className="inline-flex items-center gap-1.5 hover:text-fg transition-colors disabled:opacity-40"
+          >
+            <Ghost className="size-3.5" />
+            Continue as guest
+          </button>
+          <span className="hidden sm:inline opacity-40">·</span>
+          <button
+            type="button"
+            onClick={() => {
+              savePendingPrompt({ prompt: prompt.trim(), theme, tone, length })
+              navigate({ to: "/auth", search: { redirect: "/" } })
+            }}
+            className="inline-flex items-center gap-1.5 hover:text-fg transition-colors"
+          >
+            <LogIn className="size-3.5" />
+            Sign in instead
+          </button>
+        </div>
+      )}
     </motion.form>
   )
 }

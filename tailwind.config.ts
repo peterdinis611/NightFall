@@ -61,7 +61,7 @@ export default {
         card:    "0 8px 40px rgba(0, 0, 0, 0.45), inset 0 1px 0 rgba(255,255,255,0.04)",
       },
       animation: {
-        "fog-drift":    "fogDrift 12s ease-in-out infinite alternate",
+        "fog-drift":    "fogDrift 7s ease-in-out infinite alternate",
         "flicker":      "flicker 0.15s step-end infinite",
         "heartbeat":    "heartbeat 1s ease-in-out infinite",
         "static-noise": "staticNoise 0.08s step-end infinite",
@@ -74,8 +74,8 @@ export default {
         "glitch-1":     "glitch1 0.15s steps(2) forwards",
         "glitch-2":     "glitch2 0.15s steps(2) forwards",
         "pulse-slow":   "pulseSlow 4s ease-in-out infinite",
-        marquee:        "marquee 22s linear infinite",
-        "marquee-reverse": "marquee-reverse 26s linear infinite",
+        marquee:        "marquee 10s linear infinite",
+        "marquee-reverse": "marquee-reverse 12s linear infinite",
       },
       keyframes: {
         fogDrift: {

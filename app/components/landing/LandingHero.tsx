@@ -20,27 +20,20 @@ export function LandingHero({ onScrollToForm }: LandingHeroProps) {
   const { theme } = useTheme()
   const [taglineIndex, setTaglineIndex] = useState(0)
   const [glitch, setGlitch] = useState(false)
-  const [flicker, setFlicker] = useState(false)
 
   useEffect(() => {
     const tagTimer = setInterval(
       () => setTaglineIndex((i) => (i + 1) % TAGLINES.length),
-      4000
+      3500
     )
     const glitchTimer = setInterval(() => {
       setGlitch(true)
-      setTimeout(() => setGlitch(false), 200)
-    }, 5000 + Math.random() * 4000)
-
-    const flickerTimer = setInterval(() => {
-      setFlicker(true)
-      setTimeout(() => setFlicker(false), 80)
-    }, 9000 + Math.random() * 6000)
+      setTimeout(() => setGlitch(false), 150)
+    }, 8000 + Math.random() * 4000)
 
     return () => {
       clearInterval(tagTimer)
       clearInterval(glitchTimer)
-      clearInterval(flickerTimer)
     }
   }, [])
 
@@ -49,44 +42,28 @@ export function LandingHero({ onScrollToForm }: LandingHeroProps) {
       {/* Ritual circle — dark / soft halo — light */}
       {theme === "dark" ? <RitualCircle /> : <LightHalo />}
 
-      {/* Central glow — animated */}
-      <motion.div
-        className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 w-[650px] h-[450px] pointer-events-none"
-        animate={{
-          scale: [1, 1.08, 1],
-          opacity: [0.7, 1, 0.7],
-        }}
-        transition={{ duration: 7, repeat: Infinity, ease: "easeInOut" }}
+      {/* Central glow — CSS only */}
+      <div
+        className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 w-[650px] h-[450px] pointer-events-none ambient-glow-pulse motion-reduce:animate-none"
         style={{
           background: theme === "light"
-            ? "radial-gradient(ellipse, rgba(255,240,200,0.18) 0%, rgba(159,18,57,0.05) 35%, rgba(91,75,138,0.04) 60%, transparent 72%)"
+            ? "radial-gradient(ellipse, rgba(255,240,200,0.18) 0%, rgba(159,18,57,0.05) 35%, transparent 72%)"
             : "radial-gradient(ellipse, rgba(185,28,28,0.12) 0%, rgba(69,10,10,0.06) 40%, transparent 68%)",
         }}
       />
 
-      {/* Vignette — oppressive darkness */}
+      {/* Vignette */}
       {theme === "dark" && (
-        <>
-          <div
-            className="absolute inset-0 pointer-events-none"
-            style={{
-              background:
-                "radial-gradient(ellipse at center, transparent 15%, rgba(2,2,4,0.92) 100%)",
-            }}
-          />
-          <motion.div
-            className="absolute inset-0 pointer-events-none"
-            style={{
-              background:
-                "radial-gradient(ellipse at center, transparent 50%, rgba(127,29,29,0.12) 100%)",
-            }}
-            animate={{ opacity: [0.4, 0.75, 0.4] }}
-            transition={{ duration: 6, repeat: Infinity, ease: "easeInOut" }}
-          />
-        </>
+        <div
+          className="absolute inset-0 pointer-events-none"
+          style={{
+            background:
+              "radial-gradient(ellipse at center, transparent 15%, rgba(2,2,4,0.92) 100%)",
+          }}
+        />
       )}
 
-      <div className={`relative z-10 text-center max-w-4xl mx-auto transition-opacity duration-75 ${flicker ? "opacity-70" : "opacity-100"}`}>
+      <div className="relative z-10 text-center max-w-4xl mx-auto">
         {/* Badge */}
         <motion.div
           initial={{ opacity: 0, y: -20 }}

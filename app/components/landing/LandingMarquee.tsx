@@ -31,12 +31,12 @@ function TickerRow({
         {doubled.map((quote, i) => (
           <span
             key={i}
-            className="inline-flex items-center gap-5 font-serif text-base sm:text-lg italic text-[var(--bone,#6b6360)]/80 dark:text-[#c4bab0]/75"
+            className="inline-flex items-center gap-5 font-serif text-base sm:text-lg italic text-muted"
           >
             <span className="ritual-index shrink-0">
               {String((i % quotes.length) + 1).padStart(2, "0")}
             </span>
-            <span className="text-blood-600/40 dark:text-blood-700/50 shrink-0 font-mono not-italic text-xs">
+            <span className="text-blood-500/50 dark:text-blood-400/50 shrink-0 font-mono not-italic text-xs">
               ✦
             </span>
             &ldquo;{quote}&rdquo;
@@ -52,14 +52,14 @@ export function LandingMarquee() {
   const rowB = QUOTES.slice(4)
 
   return (
-    <div className="relative overflow-hidden dark:bg-[#080609] bg-[var(--surface-bg)]">
+    <div className="relative overflow-hidden bg-[var(--surface-bg)] border-y border-[var(--border)]">
       <div className="manuscript-rule" />
 
       <div className="relative py-6 sm:py-8">
         <div className="flex items-center justify-center gap-4 mb-6 px-4">
-          <div className="h-px flex-1 max-w-[120px] bg-gradient-to-r from-transparent to-blood-800/30" />
+          <div className="h-px flex-1 max-w-[120px] bg-gradient-to-r from-transparent to-[var(--border-hover)]" />
           <p className="editorial-label text-center">Whispers from the void</p>
-          <div className="h-px flex-1 max-w-[120px] bg-gradient-to-l from-transparent to-blood-800/30" />
+          <div className="h-px flex-1 max-w-[120px] bg-gradient-to-l from-transparent to-[var(--border-hover)]" />
         </div>
 
         <div
@@ -83,10 +83,10 @@ export function LandingMarquee() {
 export function LandingCTA() {
   return (
     <motion.div
-      initial={{ opacity: 0, y: 24 }}
+      initial={{ opacity: 0, y: 16 }}
       whileInView={{ opacity: 1, y: 0 }}
       viewport={{ once: true, margin: "-60px" }}
-      transition={{ duration: 0.5, ease: [0.22, 1, 0.36, 1] }}
+      transition={{ duration: 0.35, ease: [0.22, 1, 0.36, 1] }}
       className="mb-12 text-left sm:text-center"
     >
       <p className="editorial-label mb-4">Ready?</p>
