@@ -3,6 +3,7 @@ import { useState, useEffect, useRef } from "react"
 import { useNavigate } from "@tanstack/react-router"
 import { useMutation } from "convex/react"
 import { useConvexAuth } from "convex/react"
+import { useAuthActions } from "@convex-dev/auth/react"
 import { api } from "@convex/_generated/api"
 import { cn } from "~/lib/utils"
 import { ToneSelector, type Tone } from "./ToneSelector"
@@ -10,12 +11,12 @@ import { LengthSelector, type Length } from "./LengthSelector"
 import { ThemeGrid } from "./ThemeGrid"
 import { Skull, Sparkles, AlertCircle, Ghost, LogIn } from "lucide-react"
 import { motion } from "framer-motion"
-import { anonymousSignIn } from "~/lib/credentialsSignIn"
 import { formatAuthError } from "~/lib/formatAuthError"
 import {
   clearPendingPrompt,
   readPendingPrompt,
   savePendingPrompt,
+  type PendingPrompt,
 } from "~/lib/pendingPrompt"
 
 const PLACEHOLDER_PROMPTS = [
@@ -29,8 +30,10 @@ const PLACEHOLDER_PROMPTS = [
 export function PromptForm() {
   const navigate = useNavigate()
   const { isAuthenticated, isLoading: authLoading } = useConvexAuth()
+  const { signIn } = useAuthActions()
   const createShell = useMutation(api.stories.createStoryShell)
   const autoSubmitRef = useRef(false)
+  const guestPendingRef = useRef(false)
 
   const [prompt, setPrompt]   = useState("")
   const [theme, setTheme]     = useState("")
@@ -43,12 +46,7 @@ export function PromptForm() {
     () => PLACEHOLDER_PROMPTS[Math.floor(Math.random() * PLACEHOLDER_PROMPTS.length)]
   )
 
-  async function startGeneration(values: {
-    prompt: string
-    theme: string
-    tone: Tone
-    length: Length
-  }) {
+  async function startGeneration(values: PendingPrompt) {
     setLoading(true)
     setError(null)
 
@@ -60,6 +58,7 @@ export function PromptForm() {
         length: values.length,
       })
       clearPendingPrompt()
+      guestPendingRef.current = false
       navigate({ to: "/generate", search: { storyId, slug } })
     } catch (err) {
       const msg = err instanceof Error ? err.message : "Something went wrong"
@@ -70,14 +69,20 @@ export function PromptForm() {
       }
       setError(msg)
       setLoading(false)
+      guestPendingRef.current = false
     }
   }
 
-  // After guest / auth return — restore draft and submit once
+  // After guest sign-in or return from /auth — restore draft and submit once
   useEffect(() => {
     if (authLoading || !isAuthenticated || autoSubmitRef.current) return
     const pending = readPendingPrompt()
-    if (!pending?.prompt?.trim()) return
+    if (!pending?.prompt?.trim()) {
+      if (guestPendingRef.current) {
+        guestPendingRef.current = false
+      }
+      return
+    }
 
     autoSubmitRef.current = true
     setPrompt(pending.prompt)
@@ -87,11 +92,27 @@ export function PromptForm() {
     void startGeneration(pending)
   }, [authLoading, isAuthenticated])
 
+  async function continueAsGuest(values: PendingPrompt) {
+    setLoading(true)
+    setError(null)
+    savePendingPrompt(values)
+    guestPendingRef.current = true
+    try {
+      // Goes through ConvexAuthProvider storage (namespaced keys)
+      await signIn("anonymous")
+      // Effect above will auto-submit once isAuthenticated flips
+    } catch (err) {
+      guestPendingRef.current = false
+      setError(formatAuthError(err, "signIn"))
+      setLoading(false)
+    }
+  }
+
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
     if (!prompt.trim() || loading) return
 
-    const values = {
+    const values: PendingPrompt = {
       prompt: prompt.trim(),
       theme,
       tone,
@@ -99,32 +120,11 @@ export function PromptForm() {
     }
 
     if (!authLoading && !isAuthenticated) {
-      setLoading(true)
-      setError(null)
-      savePendingPrompt(values)
-      try {
-        await anonymousSignIn("/")
-      } catch (err) {
-        setError(formatAuthError(err, "signIn"))
-        setLoading(false)
-      }
+      await continueAsGuest(values)
       return
     }
 
     await startGeneration(values)
-  }
-
-  async function handleGuestClick() {
-    if (!prompt.trim() || loading) return
-    setLoading(true)
-    setError(null)
-    savePendingPrompt({ prompt: prompt.trim(), theme, tone, length })
-    try {
-      await anonymousSignIn("/")
-    } catch (err) {
-      setError(formatAuthError(err, "signIn"))
-      setLoading(false)
-    }
   }
 
   const needsAuth = !authLoading && !isAuthenticated
@@ -202,7 +202,9 @@ export function PromptForm() {
         <div className="flex flex-col sm:flex-row items-center justify-center gap-3 text-xs text-muted">
           <button
             type="button"
-            onClick={handleGuestClick}
+            onClick={() =>
+              void continueAsGuest({ prompt: prompt.trim(), theme, tone, length })
+            }
             disabled={!prompt.trim() || loading}
             className="inline-flex items-center gap-1.5 hover:text-fg transition-colors disabled:opacity-40"
           >
@@ -213,7 +215,9 @@ export function PromptForm() {
           <button
             type="button"
             onClick={() => {
-              savePendingPrompt({ prompt: prompt.trim(), theme, tone, length })
+              if (prompt.trim()) {
+                savePendingPrompt({ prompt: prompt.trim(), theme, tone, length })
+              }
               navigate({ to: "/auth", search: { redirect: "/" } })
             }}
             className="inline-flex items-center gap-1.5 hover:text-fg transition-colors"

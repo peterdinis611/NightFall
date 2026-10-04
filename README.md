@@ -8,123 +8,128 @@ Generate cinematic horror stories with AI. Each story is an animated, atmospheri
 
 | Layer | Tech |
 |-------|------|
-| Framework | TanStack Start (React SSR, file-based routing) |
-| Backend | Convex (realtime DB, storage, auth) |
+| Frontend | Vite + React SPA (TanStack Router) |
+| Backend | Convex (realtime DB, actions, auth) |
 | AI | OpenAI GPT-4o |
-| Styling | Tailwind CSS v3 + shadcn-style components |
-| Animation | Framer Motion |
-| Auth | Convex Auth (GitHub, Google, Anonymous) |
+| Styling | Tailwind CSS v3 |
+| Animation | Framer Motion + CSS |
+| Auth | Convex Auth (Password, GitHub, Google, Anonymous guest) |
 
 ## Project structure
 
 ```
 nightfall/
 ├── app/
-│   ├── routes/
-│   │   ├── __root.tsx        # Root layout, Convex + auth wrapper
-│   │   ├── index.tsx         # Home: prompt form
-│   │   ├── generate.tsx      # Generating screen (polls Convex)
-│   │   ├── library.tsx       # User story library
-│   │   └── story/$slug.tsx   # Story player
+│   ├── routes/               # File-based routes
 │   ├── components/
-│   │   ├── prompt/           # PromptForm, ToneSelector, LengthSelector, ThemeGrid
-│   │   ├── player/           # StoryPlayer, SceneBackground, SceneText, SceneAudio, PlaybackBar
-│   │   └── shared/           # ContentWarning modal
-│   ├── lib/utils.ts          # Helpers (cn, mood colours, etc.)
-│   └── styles/globals.css    # Dark horror theme
+│   │   ├── landing/          # Hero, marquee, features, horror FX
+│   │   ├── prompt/           # PromptForm, selectors
+│   │   ├── player/           # Story player stack
+│   │   ├── auth/             # AuthForm
+│   │   └── shared/
+│   ├── lib/                  # Theme, auth helpers, audio
+│   ├── db/                   # Client auth token storage
+│   └── styles/globals.css
 ├── convex/
-│   ├── schema.ts             # stories, scenes, playback_sessions tables
-│   ├── stories.ts            # Queries + mutations
-│   ├── actions.ts            # OpenAI story generation action
-│   └── auth.ts               # Convex Auth config
-├── vite.config.ts
+│   ├── schema.ts
+│   ├── stories.ts            # Queries, mutations, scheduler kickoff
+│   ├── actions.ts            # Internal OpenAI generation action
+│   ├── auth.ts
+│   └── http.ts
+├── public/audio/             # Scene ambient WAVs
+├── scripts/generate-audio.mjs
 └── .env.example
 ```
 
 ## Getting started
 
-### 1. Clone and install
+### 1. Install
 
 ```bash
-cd nightfall
 npm install
 ```
 
-### 2. Create a Convex project
+### 2. Convex project
 
 ```bash
 npx convex dev
 ```
 
-This generates `convex/_generated/` and starts the Convex dev server.
+This creates `convex.json`, generates `convex/_generated/`, and prints your deployment URL.
 
-### 3. Set environment variables
+### 3. Environment
 
-Copy `.env.example` to `.env` and fill in:
+Copy `.env.example` → `.env.local`:
 
 ```bash
 VITE_CONVEX_URL=https://your-project.convex.cloud
-OPENAI_API_KEY=sk-...
-# Optional: GitHub/Google OAuth
-AUTH_GITHUB_ID=...
-AUTH_GITHUB_SECRET=...
-AUTH_GOOGLE_ID=...
-AUTH_GOOGLE_SECRET=...
-SITE_URL=http://localhost:3000
 ```
 
-Set `OPENAI_API_KEY` and auth secrets also in the Convex dashboard under **Environment Variables**.
+Set **Convex dashboard → Settings → Environment Variables** (backend):
 
-### 4. Run dev server
+| Variable | Required | Notes |
+|----------|----------|-------|
+| `OPENAI_API_KEY` | **Yes** | Story generation |
+| `SITE_URL` | **Yes** | e.g. `http://localhost:3000` |
+| `JWT_PRIVATE_KEY` / `JWKS` | **Yes** | Run `npm run auth:setup` |
+| `AUTH_GITHUB_ID` / `AUTH_GITHUB_SECRET` | Optional | GitHub OAuth |
+| `AUTH_GOOGLE_ID` / `AUTH_GOOGLE_SECRET` | Optional | Google OAuth |
 
 ```bash
-npm run dev          # Vite + TanStack Start
-npm run convex:dev   # Convex backend (separate terminal)
+npm run auth:setup   # writes JWT keys + SITE_URL to Convex
 ```
 
-Open [http://localhost:3000](http://localhost:3000)
+### 4. Run (two terminals)
 
-## Story moods & animations
+```bash
+npm run convex:dev   # Convex backend
+npm run dev          # Vite on http://localhost:3000
+```
 
-| Mood | Background | Text style | Sound |
-|------|-----------|------------|-------|
-| `fog` | Drifting blue mist | Mist-coloured serif | wind_low |
-| `silence` | Near-black radial | Wide tracking | deep_drone |
-| `dread` | Purple-black gradient | Standard serif | heartbeat_low |
-| `descent` | Deep violet pulse | Fade-down serif | breathing_close |
-| `static` | Animated noise | JetBrains Mono | static_burst |
-| `pulse` | Red heartbeat | Uppercase blood-red | heartbeat_high |
-| `chase` | Jittering dark | Left-aligned sharp | chase_strings |
-| `reveal` | Dark brightening | Italic dimmed | choir_dissonant |
+### 5. Audio (optional)
 
-## Audio
-
-Place ambient audio files in `public/audio/` (WAV format). Generate them with:
+Scene audio WAVs ship in `public/audio/`. Regenerate with:
 
 ```bash
 npm run generate:audio
 ```
 
-```
-public/audio/
-  wind_low.wav
-  heartbeat_low.wav
-  heartbeat_high.wav
-  static_burst.wav
-  drip_cave.wav
-  choir_dissonant.wav
-  chase_strings.wav
-  breathing_close.wav
-  deep_drone.wav
-  door_creak.wav
-  water_distant.wav
-```
+## How generation works
 
-Audio is optional — stories work fine without it. The `SceneAudio` component cross-fades between scenes at 35% volume.
+1. User submits the prompt form (signed-in or **guest**).
+2. `createStoryShell` inserts a `generating` story and **schedules** `internal.actions.generateStory` on Convex.
+3. Generation continues even if the browser tab closes.
+4. `/generate` polls `getBySlug` until `ready` or `failed`, then redirects to the player.
+5. Library can **Resume** generating stories or **Retry** failed ones.
 
-## Build
+## Privacy
+
+- New stories are **private** by default.
+- Owners can toggle public from the library (ready stories only).
+- `getBySlug` returns a story only if it is **public + ready**, or the viewer is the **owner**.
+
+## Scripts
 
 ```bash
-npm run build   # Production build → dist/
-npm run start   # Serve production build
+npm run dev              # Vite SPA
+npm run build            # Production build → dist/
+npm run start            # Preview production build
+npm run convex:dev       # Convex local sync
+npm run convex:deploy    # Deploy Convex
+npm run auth:setup       # JWT + SITE_URL on Convex
+npm run generate:audio   # Rebuild public/audio WAVs
+npm test                 # Vitest
 ```
+
+## Story moods
+
+| Mood | Sound cue (typical) |
+|------|---------------------|
+| `fog` | wind_low |
+| `silence` | deep_drone |
+| `dread` | heartbeat_low |
+| `descent` | breathing_close |
+| `static` | static_burst |
+| `pulse` | heartbeat_high |
+| `chase` | chase_strings |
+| `reveal` | choir_dissonant |

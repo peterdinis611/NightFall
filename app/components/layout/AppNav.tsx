@@ -1,6 +1,6 @@
 import { Link } from "@tanstack/react-router"
 import { useConvexAuth, useQuery } from "convex/react"
-import { useAuthActions, useAuthToken } from "@convex-dev/auth/react"
+import { useAuthActions } from "@convex-dev/auth/react"
 import * as DropdownMenu from "@radix-ui/react-dropdown-menu"
 import { api } from "@convex/_generated/api"
 import {
@@ -19,18 +19,13 @@ import { AmbientSoundToggle } from "~/components/shared/AmbientSoundToggle"
 import { AppBrand } from "~/components/shared/AppBrand"
 import { useTheme } from "~/lib/theme"
 import { cn } from "~/lib/utils"
-import { hasStoredAuthSession } from "~/db/authTokens"
 
 export function AppNav() {
   const { isAuthenticated, isLoading } = useConvexAuth()
-  const authToken = useAuthToken()
   const { theme } = useTheme()
   const { signOut } = useAuthActions()
 
-  const signedIn =
-    isAuthenticated || Boolean(authToken) || (!isLoading && hasStoredAuthSession())
-
-  const user = useQuery(api.users.current, signedIn ? {} : "skip")
+  const user = useQuery(api.users.current, isAuthenticated ? {} : "skip")
 
   const profileLabel =
     user?.name?.trim() ||
@@ -80,9 +75,9 @@ export function AppNav() {
           <AmbientSoundToggle />
           <ThemeToggle />
 
-          {isLoading && !signedIn ? (
+          {isLoading && !isAuthenticated ? (
             <div className="h-9 w-28 rounded-xl bg-[var(--surface-bg)] animate-pulse" />
-          ) : signedIn ? (
+          ) : isAuthenticated ? (
             <ProfileDropdown
               label={profileLabel}
               initial={profileInitial}

@@ -5,7 +5,6 @@ import { useConvexAuth, useQuery } from "convex/react"
 import { api } from "@convex/_generated/api"
 import { motion, AnimatePresence } from "framer-motion"
 import { authNavigateOptions, getAuthRedirectPath } from "~/lib/authRedirect"
-import { passwordSignIn, anonymousSignIn } from "~/lib/credentialsSignIn"
 import { formatAuthError } from "~/lib/formatAuthError"
 import { cn } from "~/lib/utils"
 import {
@@ -49,21 +48,34 @@ export function AuthForm({ redirectTo = "/" }: AuthFormProps) {
     }
   }, [authLoading, isAuthenticated, user, navigate, destination])
 
+  // Guest just signed in via this form
+  useEffect(() => {
+    if (!authLoading && isAuthenticated && user?.isAnonymous && loading === "anonymous") {
+      setLoading(null)
+      void navigate(authNavigateOptions(destination))
+    }
+  }, [authLoading, isAuthenticated, user, loading, navigate, destination])
+
   async function handlePasswordSubmit(e: React.FormEvent) {
     e.preventDefault()
     setLoading("password")
     setError(null)
 
     try {
-      await passwordSignIn(
-        {
-          email,
-          password,
-          flow: mode === "signUp" ? "signUp" : "signIn",
-          name: mode === "signUp" ? name : undefined,
-        },
-        destination,
-      )
+      const result = await signIn("password", {
+        email: email.trim().toLowerCase(),
+        password,
+        flow: mode === "signUp" ? "signUp" : "signIn",
+        ...(mode === "signUp" && name.trim() ? { name: name.trim() } : {}),
+      })
+
+      if (result.redirect) {
+        window.location.href = result.redirect
+        return
+      }
+
+      // Tokens are stored by ConvexAuthProvider — soft navigate
+      void navigate(authNavigateOptions(destination))
     } catch (err) {
       setError(formatAuthError(err, mode))
       setLoading(null)
@@ -74,7 +86,7 @@ export function AuthForm({ redirectTo = "/" }: AuthFormProps) {
     setLoading(provider)
     setError(null)
     try {
-      await signIn(provider, { redirectTo })
+      await signIn(provider, { redirectTo: destination })
     } catch (err) {
       setError(formatAuthError(err, mode))
       setLoading(null)
@@ -85,7 +97,8 @@ export function AuthForm({ redirectTo = "/" }: AuthFormProps) {
     setLoading("anonymous")
     setError(null)
     try {
-      await anonymousSignIn(destination)
+      await signIn("anonymous")
+      // navigate happens in effect once user query resolves
     } catch (err) {
       setError(formatAuthError(err, mode))
       setLoading(null)

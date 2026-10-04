@@ -1,14 +1,14 @@
 import { describe, it, expect, beforeEach, vi } from "vitest"
-import { createMemoryStorage } from "~/db/memoryStorage"
 import {
+  clearStoredAuthSession,
   hasStoredAuthSession,
-  resetAuthTokensCollection,
+  storeAuthTokens,
 } from "~/db/authTokens"
 import { callAuthSignIn, passwordSignIn } from "~/lib/credentialsSignIn"
 
 describe("credentialsSignIn", () => {
   beforeEach(() => {
-    resetAuthTokensCollection(createMemoryStorage())
+    clearStoredAuthSession()
     vi.restoreAllMocks()
   })
 
@@ -41,11 +41,6 @@ describe("credentialsSignIn", () => {
   })
 
   it("clears previous session before sign-in", async () => {
-    resetAuthTokensCollection(createMemoryStorage())
-    const storage = createMemoryStorage()
-    resetAuthTokensCollection(storage)
-
-    const { storeAuthTokens } = await import("~/db/authTokens")
     storeAuthTokens({ token: "old", refreshToken: "old-r" })
 
     const mockClient = {

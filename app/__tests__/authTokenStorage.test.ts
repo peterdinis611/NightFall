@@ -1,47 +1,43 @@
 import { describe, it, expect, beforeEach } from "vitest"
-import { createMemoryStorage } from "~/db/memoryStorage"
 import { createAuthTokenStorage } from "~/db/authTokenStorage"
-import { createAuthTokensCollection, resetAuthTokensCollection } from "~/db/authTokens"
+import {
+  clearStoredAuthSession,
+  hasStoredAuthSession,
+  namespacedAuthKey,
+  storeAuthTokens,
+} from "~/db/authTokens"
+import { createMemoryStorage } from "~/db/memoryStorage"
 
 describe("createAuthTokenStorage", () => {
+  it("passes namespaced keys through to underlying storage", () => {
+    const mem = createMemoryStorage()
+    const storage = createAuthTokenStorage(mem as unknown as Storage)
+    const key = "__convexAuthJWT_httpsyourdeploymentconvexcloud"
+
+    storage.setItem(key, "test-jwt")
+    expect(storage.getItem(key)).toBe("test-jwt")
+    storage.removeItem(key)
+    expect(storage.getItem(key)).toBeNull()
+  })
+})
+
+describe("auth token helpers", () => {
   beforeEach(() => {
-    resetAuthTokensCollection(createMemoryStorage())
+    clearStoredAuthSession()
   })
 
-  it("maps Convex Auth JWT key to TanStack DB collection", () => {
-    const collection = createAuthTokensCollection(createMemoryStorage())
-    const storage = createAuthTokenStorage(collection)
-
-    storage.setItem("__convexAuthJWT", "test-jwt")
-    expect(storage.getItem("__convexAuthJWT")).toBe("test-jwt")
-    expect(collection.get("jwt")?.value).toBe("test-jwt")
+  it("stores and detects a namespaced session", () => {
+    storeAuthTokens({ token: "jwt-abc", refreshToken: "refresh-xyz" })
+    expect(hasStoredAuthSession()).toBe(true)
+    expect(localStorage.getItem(namespacedAuthKey("__convexAuthJWT"))).toBe("jwt-abc")
+    expect(localStorage.getItem(namespacedAuthKey("__convexAuthRefreshToken"))).toBe(
+      "refresh-xyz",
+    )
   })
 
-  it("maps refresh token key", () => {
-    const collection = createAuthTokensCollection(createMemoryStorage())
-    const storage = createAuthTokenStorage(collection)
-
-    storage.setItem("__convexAuthRefreshToken", "test-refresh")
-    expect(storage.getItem("__convexAuthRefreshToken")).toBe("test-refresh")
-    expect(collection.get("refresh")?.value).toBe("test-refresh")
-  })
-
-  it("removes tokens", () => {
-    const collection = createAuthTokensCollection(createMemoryStorage())
-    const storage = createAuthTokenStorage(collection)
-
-    storage.setItem("__convexAuthJWT", "test-jwt")
-    storage.removeItem("__convexAuthJWT")
-    expect(storage.getItem("__convexAuthJWT")).toBeNull()
-    expect(collection.has("jwt")).toBe(false)
-  })
-
-  it("updates existing token values", () => {
-    const collection = createAuthTokensCollection(createMemoryStorage())
-    const storage = createAuthTokenStorage(collection)
-
-    storage.setItem("__convexAuthJWT", "v1")
-    storage.setItem("__convexAuthJWT", "v2")
-    expect(storage.getItem("__convexAuthJWT")).toBe("v2")
+  it("clears the session", () => {
+    storeAuthTokens({ token: "jwt-abc", refreshToken: "refresh-xyz" })
+    clearStoredAuthSession()
+    expect(hasStoredAuthSession()).toBe(false)
   })
 })
