@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest"
-import { formatAuthError } from "./formatAuthError"
+import { formatAuthError } from "~/lib/formatAuthError"
 
 describe("formatAuthError", () => {
   it("maps InvalidAccountId for sign in", () => {

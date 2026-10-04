@@ -1,7 +1,8 @@
 // @ts-nocheck
 import { v } from "convex/values"
-import { mutation, query, internalMutation } from "./_generated/server"
+import { mutation, query, internalMutation, internalQuery } from "./_generated/server"
 import { getAuthUserId } from "@convex-dev/auth/server"
+import { internal } from "./_generated/api"
 
 // ── Queries ────────────────────────────────────────────────────────────────
 
@@ -13,6 +14,13 @@ export const getBySlug = query({
       .withIndex("by_slug", (q) => q.eq("slug", slug))
       .unique()
     if (!story) return null
+
+    const userId = await getAuthUserId(ctx)
+    const isOwner = Boolean(userId && story.userId === userId)
+    const isPublicReady = story.isPublic && story.status === "ready"
+
+    // Private / incomplete stories are owner-only
+    if (!isOwner && !isPublicReady) return null
 
     const scenes = await ctx.db
       .query("scenes")
@@ -28,7 +36,7 @@ export const getBySlug = query({
       }))
     )
 
-    return { ...story, scenes: resolvedScenes }
+    return { ...story, scenes: resolvedScenes, isOwner }
   },
 })
 
@@ -60,10 +68,19 @@ export const getPublicGallery = query({
       .order("desc")
       .paginate({ cursor: cursor ?? null, numItems: 20 })
 
+    // Only expose ready public stories
     return {
-      stories: results.page,
+      stories: results.page.filter((s) => s.status === "ready"),
       cursor: results.continueCursor,
     }
+  },
+})
+
+/** Internal: used by scheduled generateStory action */
+export const getStoryForGeneration = internalQuery({
+  args: { storyId: v.id("stories") },
+  handler: async (ctx, { storyId }) => {
+    return await ctx.db.get(storyId)
   },
 })
 
@@ -85,6 +102,10 @@ export const createStoryShell = mutation({
     const userId = await getAuthUserId(ctx)
     if (!userId) throw new Error("Authentication required")
 
+    const prompt = args.prompt.trim()
+    if (!prompt) throw new Error("Prompt is required")
+    if (prompt.length > 400) throw new Error("Prompt must be 400 characters or fewer")
+
     // Rate limit: max 5 stories per hour
     const oneHourAgo = Date.now() - 60 * 60 * 1000
     const recent = await ctx.db
@@ -104,8 +125,8 @@ export const createStoryShell = mutation({
       userId,
       title:       "Generating…",
       slug,
-      prompt:      args.prompt,
-      theme:       args.theme,
+      prompt,
+      theme:       args.theme.trim() || prompt,
       tone:        args.tone,
       length:      args.length,
       status:      "generating",
@@ -116,7 +137,43 @@ export const createStoryShell = mutation({
       createdAt:   Date.now(),
     })
 
+    // Run on Convex — survives closed browser tabs
+    await ctx.scheduler.runAfter(0, internal.actions.generateStory, { storyId })
+
     return { storyId, slug }
+  },
+})
+
+/** Re-queue a failed (or stuck generating) story owned by the user */
+export const retryGeneration = mutation({
+  args: { storyId: v.id("stories") },
+  handler: async (ctx, { storyId }) => {
+    const userId = await getAuthUserId(ctx)
+    const story = await ctx.db.get(storyId)
+    if (!userId || !story || story.userId !== userId) {
+      throw new Error("Unauthorized")
+    }
+    if (story.status === "ready") {
+      throw new Error("Story is already ready")
+    }
+
+    // Clear any partial scenes from a previous failed attempt
+    const existing = await ctx.db
+      .query("scenes")
+      .withIndex("by_story_order", (q) => q.eq("storyId", storyId))
+      .collect()
+    await Promise.all(existing.map((s) => ctx.db.delete(s._id)))
+
+    await ctx.db.patch(storyId, {
+      status: "generating",
+      title: "Generating…",
+      errorMessage: undefined,
+      sceneCount: 0,
+      wordCount: 0,
+    })
+
+    await ctx.scheduler.runAfter(0, internal.actions.generateStory, { storyId })
+    return { storyId, slug: story.slug }
   },
 })
 
@@ -181,6 +238,9 @@ export const togglePublic = mutation({
     const userId = await getAuthUserId(ctx)
     const story  = await ctx.db.get(storyId)
     if (!story || story.userId !== userId) throw new Error("Unauthorized")
+    if (story.status !== "ready") {
+      throw new Error("Only ready stories can be made public")
+    }
     await ctx.db.patch(storyId, { isPublic: !story.isPublic })
     return { isPublic: !story.isPublic, slug: story.slug }
   },
@@ -214,6 +274,11 @@ export const recordPlay = mutation({
     const userId = await getAuthUserId(ctx)
     const story  = await ctx.db.get(storyId)
     if (!story) return
+
+    const isOwner = Boolean(userId && story.userId === userId)
+    if (!isOwner && !(story.isPublic && story.status === "ready")) {
+      throw new Error("Unauthorized")
+    }
 
     await ctx.db.patch(storyId, { playCount: story.playCount + 1 })
     return await ctx.db.insert("playback_sessions", {

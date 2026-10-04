@@ -1,34 +1,32 @@
 import type { TokenStorage } from "@convex-dev/auth/react"
-import {
-  convexStorageKeyToTokenId,
-  getAuthTokensCollection,
-  type AuthTokensCollection,
-} from "./authTokens"
 
+/**
+ * Thin localStorage adapter for Convex Auth.
+ * Convex Auth already namespaces keys before calling get/set/remove.
+ */
 export function createAuthTokenStorage(
-  collection: AuthTokensCollection = getAuthTokensCollection(),
+  storage: Storage = window.localStorage,
 ): TokenStorage {
   return {
     getItem(key: string) {
-      const id = convexStorageKeyToTokenId(key)
-      if (!id) return null
-      return collection.get(id)?.value ?? null
+      try {
+        return storage.getItem(key)
+      } catch {
+        return null
+      }
     },
     setItem(key: string, value: string) {
-      const id = convexStorageKeyToTokenId(key)
-      if (!id) return
-      if (collection.has(id)) {
-        collection.update(id, (draft) => {
-          draft.value = value
-        })
-      } else {
-        collection.insert({ id, value })
+      try {
+        storage.setItem(key, value)
+      } catch {
+        // Quota / private mode — ignore
       }
     },
     removeItem(key: string) {
-      const id = convexStorageKeyToTokenId(key)
-      if (id && collection.has(id)) {
-        collection.delete(id)
+      try {
+        storage.removeItem(key)
+      } catch {
+        // ignore
       }
     },
   }

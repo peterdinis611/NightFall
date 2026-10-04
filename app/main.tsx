@@ -9,6 +9,13 @@ import { CONVEX_URL } from "~/lib/convex"
 import { createAuthTokenStorage } from "~/db/authTokenStorage"
 import "~/styles/globals.css"
 
+// Drop the old TanStack DB token dump — it broke namespaced Convex Auth keys
+try {
+  localStorage.removeItem("nightfall-auth-tokens")
+} catch {
+  // private mode / unavailable
+}
+
 const convex = new ConvexReactClient(CONVEX_URL)
 
 createRoot(document.getElementById("root")!).render(

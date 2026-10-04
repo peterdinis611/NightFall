@@ -26,10 +26,13 @@ function StoryPage() {
     )
   }
 
-  if (story === null || story.status === "failed") {
+  if (story === null) {
     return (
       <div className="flex min-h-screen flex-col items-center justify-center gap-4 px-4 text-center">
         <p className="font-serif text-xl text-blood-400">This story does not exist… or does it?</p>
+        <p className="text-sm text-muted max-w-sm">
+          It may be private, still forming, or lost to the void.
+        </p>
         <Link to="/" className="text-sm text-night-500 hover:text-night-300 underline">
           Return home
         </Link>
@@ -37,10 +40,33 @@ function StoryPage() {
     )
   }
 
+  if (story.status === "failed") {
+    return (
+      <div className="flex min-h-screen flex-col items-center justify-center gap-4 px-4 text-center">
+        <p className="font-serif text-xl text-blood-400">The ritual failed</p>
+        <Link
+          to="/generate"
+          search={{ storyId: story._id, slug }}
+          className="text-sm text-night-500 hover:text-night-300 underline"
+        >
+          Check generation status
+        </Link>
+      </div>
+    )
+  }
+
   if (story.status === "generating") {
     return (
-      <div className="flex min-h-screen items-center justify-center">
+      <div className="flex min-h-screen flex-col items-center justify-center gap-4 px-4 text-center">
         <span className="animate-pulse text-3xl">💀</span>
+        <p className="text-sm text-muted">Still summoning…</p>
+        <Link
+          to="/generate"
+          search={{ storyId: story._id, slug }}
+          className="text-sm text-blood-500 hover:text-blood-400 underline"
+        >
+          Watch the ritual
+        </Link>
       </div>
     )
   }

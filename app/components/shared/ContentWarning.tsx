@@ -26,18 +26,52 @@ export function ContentWarning() {
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           exit={{ opacity: 0 }}
-          className="fixed inset-0 z-[9999] flex items-center justify-center bg-[var(--background)]/95 backdrop-blur-md px-4"
+          className="fixed inset-0 z-[9999] flex items-center justify-center bg-[#020204]/97 backdrop-blur-md px-4"
         >
+          {/* Background void pulse */}
+          <motion.div
+            className="absolute inset-0 pointer-events-none"
+            style={{
+              background:
+                "radial-gradient(ellipse at center, rgba(127,29,29,0.12) 0%, transparent 60%)",
+            }}
+            animate={{ opacity: [0.5, 0.9, 0.5] }}
+            transition={{ duration: 4, repeat: Infinity, ease: "easeInOut" }}
+          />
+
           <motion.div
             initial={{ scale: 0.92, y: 24 }}
             animate={{ scale: 1, y: 0 }}
             exit={{ scale: 0.92, opacity: 0 }}
             transition={{ type: "spring", stiffness: 260, damping: 22 }}
-            className="relative w-full max-w-sm surface p-8 shadow-card text-center"
+            className="relative w-full max-w-sm surface p-8 shadow-card text-center dark:border-blood-900/25 overflow-hidden"
           >
-            <div className="mx-auto mb-5 flex size-16 items-center justify-center rounded-2xl border border-blood-700/30 bg-blood-900/25 shadow-glow-sm">
-              <Skull className="size-8 text-blood-400" />
-            </div>
+            <div
+              className="absolute inset-0 pointer-events-none opacity-[0.03] dark:opacity-[0.06]"
+              style={{
+                backgroundImage:
+                  "repeating-linear-gradient(0deg, transparent, transparent 2px, rgba(220,38,38,0.5) 2px, rgba(220,38,38,0.5) 4px)",
+              }}
+            />
+
+            <motion.div
+              className="mx-auto mb-5 flex size-16 items-center justify-center rounded-2xl border border-blood-700/30 bg-blood-900/25 shadow-glow-sm"
+              animate={{
+                boxShadow: [
+                  "0 0 0 0 rgba(220,38,38,0)",
+                  "0 0 0 12px rgba(220,38,38,0.06)",
+                  "0 0 0 0 rgba(220,38,38,0)",
+                ],
+              }}
+              transition={{ duration: 2.5, repeat: Infinity }}
+            >
+              <motion.div
+                animate={{ rotate: [0, 4, -4, 0] }}
+                transition={{ duration: 4, repeat: Infinity, ease: "easeInOut" }}
+              >
+                <Skull className="size-8 text-blood-400" />
+              </motion.div>
+            </motion.div>
 
             <p className="label-section !mb-3 !text-blood-500/60">Before you enter</p>
             <h2 className="font-serif text-2xl font-semibold text-fg mb-3">

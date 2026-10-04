@@ -1,15 +1,24 @@
 "use client"
-import { useState } from "react"
+import { useState, useEffect, useRef } from "react"
 import { useNavigate } from "@tanstack/react-router"
-import { useMutation, useAction } from "convex/react"
-import { useConvexAuth } from "convex/react"
+import { useMutation, useConvexAuth } from "convex/react"
 import { api } from "@convex/_generated/api"
 import { cn } from "~/lib/utils"
 import { ToneSelector, type Tone } from "./ToneSelector"
 import { LengthSelector, type Length } from "./LengthSelector"
 import { ThemeGrid } from "./ThemeGrid"
-import { Skull, Sparkles, AlertCircle } from "lucide-react"
-import { motion } from "framer-motion"
+import { Skull, AlertCircle, Ghost, LogIn } from "lucide-react"
+import { AnimatePresence, motion } from "framer-motion"
+import { formatAuthError } from "~/lib/formatAuthError"
+import {
+  clearPendingPrompt,
+  readPendingPrompt,
+  savePendingPrompt,
+  type PendingPrompt,
+} from "~/lib/pendingPrompt"
+import { TEST_CASES } from "~/lib/testCases"
+import { BloodSpinner } from "~/components/shared/BloodSpinner"
+import { establishGuestSession } from "~/lib/guestSignIn"
 
 const PLACEHOLDER_PROMPTS = [
   "Something lives in the walls of my apartment. It knows my name.",
@@ -19,65 +28,156 @@ const PLACEHOLDER_PROMPTS = [
   "My reflection stopped following me three days ago.",
 ]
 
+const showTestCases = import.meta.env.DEV
+
 export function PromptForm() {
   const navigate = useNavigate()
   const { isAuthenticated, isLoading: authLoading } = useConvexAuth()
-  const createShell  = useMutation(api.stories.createStoryShell)
-  const generateStory = useAction(api.actions.generateStory)
+  const createShell = useMutation(api.stories.createStoryShell)
+  const autoSubmitRef = useRef(false)
 
-  const [prompt, setPrompt]   = useState("")
-  const [theme, setTheme]     = useState("")
-  const [tone, setTone]       = useState<Tone>("atmospheric")
-  const [length, setLength]   = useState<Length>("medium")
+  const [prompt, setPrompt] = useState("")
+  const [theme, setTheme] = useState("")
+  const [tone, setTone] = useState<Tone>("atmospheric")
+  const [length, setLength] = useState<Length>("medium")
   const [loading, setLoading] = useState(false)
-  const [error, setError]     = useState<string | null>(null)
+  const [phase, setPhase] = useState<"guest" | "summoning" | null>(null)
+  const [error, setError] = useState<string | null>(null)
 
   const [placeholder] = useState(
-    () => PLACEHOLDER_PROMPTS[Math.floor(Math.random() * PLACEHOLDER_PROMPTS.length)]
+    () => PLACEHOLDER_PROMPTS[Math.floor(Math.random() * PLACEHOLDER_PROMPTS.length)],
   )
 
-  async function handleSubmit(e: React.FormEvent) {
-    e.preventDefault()
-    if (!prompt.trim()) return
-
-    if (!authLoading && !isAuthenticated) {
-      navigate({ to: "/auth", search: { redirect: "/" } })
-      return
-    }
-
+  async function startGeneration(values: PendingPrompt) {
     setLoading(true)
+    setPhase("summoning")
     setError(null)
 
     try {
       const { storyId, slug } = await createShell({
-        prompt: prompt.trim(),
-        theme:  theme || prompt.trim(),
-        tone,
-        length,
+        prompt: values.prompt.trim(),
+        theme: values.theme || values.prompt.trim(),
+        tone: values.tone,
+        length: values.length,
       })
-
+      clearPendingPrompt()
       navigate({ to: "/generate", search: { storyId, slug } })
-
-      generateStory({ storyId, prompt: prompt.trim(), theme: theme || prompt.trim(), tone, length })
-        .catch(console.error)
     } catch (err) {
       const msg = err instanceof Error ? err.message : "Something went wrong"
-      if (msg.toLowerCase().includes("authentication")) {
-        navigate({ to: "/auth", search: { redirect: "/" } })
+      if (msg.toLowerCase().includes("authentication") || msg.toLowerCase().includes("not authenticated")) {
+        savePendingPrompt(values)
+        setError("Session expired. Try Generate again — we'll sign you in as guest.")
+        setLoading(false)
+        setPhase(null)
+        autoSubmitRef.current = false
         return
       }
       setError(msg)
       setLoading(false)
+      setPhase(null)
+      autoSubmitRef.current = false
     }
   }
+
+  // After guest hard-reload (or return from /auth) — restore draft and submit once
+  useEffect(() => {
+    if (authLoading || !isAuthenticated || autoSubmitRef.current) return
+    const pending = readPendingPrompt()
+    if (!pending?.prompt?.trim()) return
+
+    autoSubmitRef.current = true
+    setPrompt(pending.prompt)
+    setTheme(pending.theme)
+    setTone(pending.tone)
+    setLength(pending.length)
+    void startGeneration(pending)
+  }, [authLoading, isAuthenticated])
+
+  // Restore draft into the form even before auth finishes (so reload feels continuous)
+  useEffect(() => {
+    const pending = readPendingPrompt()
+    if (!pending?.prompt?.trim()) return
+    setPrompt(pending.prompt)
+    setTheme(pending.theme)
+    setTone(pending.tone)
+    setLength(pending.length)
+    if (!isAuthenticated) {
+      setLoading(true)
+      setPhase("guest")
+    }
+  }, [])
+
+  async function continueAsGuest(values: PendingPrompt) {
+    if (!values.prompt.trim()) return
+    setLoading(true)
+    setPhase("guest")
+    setError(null)
+    savePendingPrompt(values)
+    try {
+      await establishGuestSession("/#generate")
+      // page unloads
+    } catch (err) {
+      setError(formatAuthError(err, "signIn"))
+      setLoading(false)
+      setPhase(null)
+    }
+  }
+
+  async function handleSubmit(e: React.FormEvent) {
+    e.preventDefault()
+    if (!prompt.trim() || loading) return
+
+    const values: PendingPrompt = {
+      prompt: prompt.trim(),
+      theme,
+      tone,
+      length,
+    }
+
+    if (authLoading) {
+      setError("Auth is still loading — wait a moment and try again.")
+      return
+    }
+
+    if (!isAuthenticated) {
+      await continueAsGuest(values)
+      return
+    }
+
+    await startGeneration(values)
+  }
+
+  const needsAuth = !authLoading && !isAuthenticated
+
+  const loadingLabel =
+    phase === "guest"
+      ? "Entering as guest…"
+      : phase === "summoning"
+        ? "Opening the story shell…"
+        : "Working…"
 
   return (
     <motion.form
       onSubmit={handleSubmit}
       initial={false}
-      className="flex flex-col gap-5 w-full"
+      className="relative flex flex-col gap-5 w-full"
     >
-      {/* Main textarea */}
+      <AnimatePresence>
+        {loading && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="absolute inset-0 z-20 flex flex-col items-center justify-center gap-3 rounded-sm bg-[var(--card)]/90 backdrop-blur-[2px]"
+          >
+            <BloodSpinner size="md" label={loadingLabel} />
+            <p className="font-marginalia text-[10px] text-[var(--verdigris)] tracking-wide">
+              keep this page open
+            </p>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
       <div className="relative group">
         <textarea
           value={prompt}
@@ -88,13 +188,41 @@ export function PromptForm() {
           className={cn(
             "input-field resize-none px-5 py-4 font-serif text-lg leading-relaxed",
             "placeholder:text-night-500/80",
-            loading && "opacity-60 pointer-events-none"
+            loading && "opacity-60 pointer-events-none",
           )}
         />
         <span className="absolute bottom-3 right-4 text-[10px] text-night-600 font-mono tabular-nums">
           {prompt.length}/400
         </span>
       </div>
+
+      {showTestCases && (
+        <div className="rounded-sm border border-[var(--border)] bg-[var(--surface-bg)] px-3 py-3">
+          <p className="font-marginalia text-[11px] text-[var(--verdigris)] mb-2">
+            test pages · dev only
+          </p>
+          <div className="flex flex-wrap gap-1.5">
+            {TEST_CASES.map((tc) => (
+              <button
+                key={tc.id}
+                type="button"
+                title={tc.note}
+                disabled={loading}
+                onClick={() => {
+                  setPrompt(tc.prompt)
+                  setTheme(tc.theme)
+                  setTone(tc.tone)
+                  setLength(tc.length)
+                  setError(null)
+                }}
+                className="chip !text-[11px] !py-1 disabled:opacity-40"
+              >
+                {tc.label}
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
 
       <div className="divider-gradient" />
 
@@ -130,16 +258,46 @@ export function PromptForm() {
       >
         {loading ? (
           <>
-            <Sparkles className="size-5 animate-shimmer" />
-            Summoning your story…
+            <BloodSpinner size="sm" />
+            {loadingLabel}
           </>
         ) : (
           <>
             <Skull className="size-5" />
-            Generate Story
+            {needsAuth ? "Generate as guest" : "Generate Story"}
           </>
         )}
       </motion.button>
+
+      {needsAuth && (
+        <div className="flex flex-col sm:flex-row items-center justify-center gap-3 text-xs text-muted">
+          <button
+            type="button"
+            onClick={() =>
+              void continueAsGuest({ prompt: prompt.trim(), theme, tone, length })
+            }
+            disabled={!prompt.trim() || loading}
+            className="inline-flex items-center gap-1.5 hover:text-fg transition-colors disabled:opacity-40"
+          >
+            <Ghost className="size-3.5" />
+            Continue as guest
+          </button>
+          <span className="hidden sm:inline opacity-40">·</span>
+          <button
+            type="button"
+            onClick={() => {
+              if (prompt.trim()) {
+                savePendingPrompt({ prompt: prompt.trim(), theme, tone, length })
+              }
+              navigate({ to: "/auth", search: { redirect: "/" } })
+            }}
+            className="inline-flex items-center gap-1.5 hover:text-fg transition-colors"
+          >
+            <LogIn className="size-3.5" />
+            Sign in instead
+          </button>
+        </div>
+      )}
     </motion.form>
   )
 }

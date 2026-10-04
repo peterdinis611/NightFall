@@ -6,9 +6,10 @@ export default {
   theme: {
     extend: {
       fontFamily: {
-        serif: ["'Crimson Pro'", "'Georgia'", "serif"],
-        mono:  ["'JetBrains Mono'", "monospace"],
-        sans:  ["'Inter'", "system-ui", "sans-serif"],
+        serif: ["'IM Fell English'", "'Times New Roman'", "serif"],
+        sans:  ["'Crimson Pro'", "'Georgia'", "serif"],
+        mono:  ["'IBM Plex Mono'", "monospace"],
+        marginalia: ["'Special Elite'", "'Courier New'", "monospace"],
       },
       colors: {
         night: {
@@ -61,7 +62,7 @@ export default {
         card:    "0 8px 40px rgba(0, 0, 0, 0.45), inset 0 1px 0 rgba(255,255,255,0.04)",
       },
       animation: {
-        "fog-drift":    "fogDrift 12s ease-in-out infinite alternate",
+        "fog-drift":    "fogDrift 7s ease-in-out infinite alternate",
         "flicker":      "flicker 0.15s step-end infinite",
         "heartbeat":    "heartbeat 1s ease-in-out infinite",
         "static-noise": "staticNoise 0.08s step-end infinite",
@@ -74,6 +75,8 @@ export default {
         "glitch-1":     "glitch1 0.15s steps(2) forwards",
         "glitch-2":     "glitch2 0.15s steps(2) forwards",
         "pulse-slow":   "pulseSlow 4s ease-in-out infinite",
+        marquee:        "marquee 22s linear infinite",
+        "marquee-reverse": "marquee-reverse 28s linear infinite",
       },
       keyframes: {
         fogDrift: {
@@ -145,6 +148,14 @@ export default {
         pulseSlow: {
           "0%, 100%": { opacity: "0.5" },
           "50%":      { opacity: "1" },
+        },
+        marquee: {
+          from: { transform: "translate3d(0, 0, 0)" },
+          to:   { transform: "translate3d(-50%, 0, 0)" },
+        },
+        "marquee-reverse": {
+          from: { transform: "translate3d(-50%, 0, 0)" },
+          to:   { transform: "translate3d(0, 0, 0)" },
         },
       },
       backgroundImage: {

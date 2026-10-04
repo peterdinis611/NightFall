@@ -5,7 +5,7 @@ import { api } from "@convex/_generated/api"
 import { motion, AnimatePresence } from "framer-motion"
 import { formatDate } from "~/lib/utils"
 import { LoadingScreen } from "~/components/shared/LoadingScreen"
-import { Trash2, Globe, Lock, BookOpen, Plus, ArrowRight } from "lucide-react"
+import { Trash2, Globe, Lock, BookOpen, Plus, ArrowRight, RefreshCw } from "lucide-react"
 import { useState } from "react"
 import type { Id } from "@convex/_generated/dataModel"
 
@@ -15,10 +15,12 @@ export const Route = createFileRoute("/library")({
 
 function LibraryPage() {
   const { isAuthenticated, isLoading: authLoading } = useConvexAuth()
-  const result      = useQuery(api.stories.getUserStories, isAuthenticated ? {} : "skip")
-  const deleteStory = useMutation(api.stories.deleteStory)
+  const result       = useQuery(api.stories.getUserStories, isAuthenticated ? {} : "skip")
+  const deleteStory  = useMutation(api.stories.deleteStory)
   const togglePublic = useMutation(api.stories.togglePublic)
+  const retryGeneration = useMutation(api.stories.retryGeneration)
   const [deleting, setDeleting] = useState<string | null>(null)
+  const [retrying, setRetrying] = useState<string | null>(null)
 
   const stories: Array<{
     _id: Id<"stories">
@@ -41,6 +43,16 @@ function LibraryPage() {
       await deleteStory({ storyId })
     } finally {
       setDeleting(null)
+    }
+  }
+
+  async function handleRetry(storyId: Id<"stories">) {
+    setRetrying(storyId)
+    try {
+      const { slug } = await retryGeneration({ storyId })
+      window.location.href = `/generate?storyId=${storyId}&slug=${slug}`
+    } finally {
+      setRetrying(null)
     }
   }
 
@@ -122,7 +134,6 @@ function LibraryPage() {
                 transition={{ delay: i * 0.04 }}
                 className="group surface surface-hover p-4 flex items-start gap-4"
               >
-                {/* Status dot */}
                 <div className="mt-1.5 shrink-0">
                   {story.status === "ready" ? (
                     <span className="size-2 rounded-full bg-blood-600 block" />
@@ -133,25 +144,24 @@ function LibraryPage() {
                   )}
                 </div>
 
-                {/* Content */}
                 <div className="flex-1 min-w-0">
                   <div className="flex items-start justify-between gap-2">
                     <h3 className="font-serif text-night-100 font-medium truncate">
                       {story.title}
                     </h3>
                     <div className="flex shrink-0 items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                      {/* Toggle public */}
-                      <IconButton
-                        onClick={() => togglePublic({ storyId: story._id as Id<"stories"> })}
-                        title={story.isPublic ? "Make private" : "Make public"}
-                      >
-                        {story.isPublic
-                          ? <Globe className="size-3.5 text-blood-400" />
-                          : <Lock  className="size-3.5 text-night-500" />
-                        }
-                      </IconButton>
+                      {story.status === "ready" && (
+                        <IconButton
+                          onClick={() => togglePublic({ storyId: story._id as Id<"stories"> })}
+                          title={story.isPublic ? "Make private" : "Make public"}
+                        >
+                          {story.isPublic
+                            ? <Globe className="size-3.5 text-blood-400" />
+                            : <Lock  className="size-3.5 text-night-500" />
+                          }
+                        </IconButton>
+                      )}
 
-                      {/* Delete */}
                       <IconButton
                         onClick={() => handleDelete(story._id as Id<"stories">)}
                         title="Delete"
@@ -164,6 +174,12 @@ function LibraryPage() {
 
                   <p className="text-xs text-night-600 mt-0.5 truncate">{story.prompt}</p>
 
+                  {story.status === "failed" && story.errorMessage && (
+                    <p className="text-[11px] text-blood-400/80 mt-1.5 line-clamp-2">
+                      {story.errorMessage}
+                    </p>
+                  )}
+
                   <div className="flex items-center gap-3 mt-2 text-[10px] font-mono text-night-600">
                     <span>{story.sceneCount} scenes</span>
                     <span>·</span>
@@ -172,10 +188,15 @@ function LibraryPage() {
                     <span>{story.playCount} plays</span>
                     <span>·</span>
                     <span>{formatDate(story.createdAt)}</span>
+                    {story.status === "generating" && (
+                      <>
+                        <span>·</span>
+                        <span className="text-amber-500/80">Generating…</span>
+                      </>
+                    )}
                   </div>
                 </div>
 
-                {/* Read link */}
                 {story.status === "ready" && (
                   <Link
                     to="/story/$slug"
@@ -185,6 +206,29 @@ function LibraryPage() {
                     Read
                     <ArrowRight className="size-3" />
                   </Link>
+                )}
+
+                {story.status === "generating" && (
+                  <Link
+                    to="/generate"
+                    search={{ storyId: story._id, slug: story.slug }}
+                    className="shrink-0 flex items-center gap-1 rounded-xl btn-ghost !py-1.5 !px-3 !text-xs"
+                  >
+                    Resume
+                    <ArrowRight className="size-3" />
+                  </Link>
+                )}
+
+                {story.status === "failed" && (
+                  <button
+                    type="button"
+                    onClick={() => handleRetry(story._id)}
+                    disabled={retrying === story._id}
+                    className="shrink-0 flex items-center gap-1 rounded-xl btn-ghost !py-1.5 !px-3 !text-xs disabled:opacity-40"
+                  >
+                    <RefreshCw className={`size-3 ${retrying === story._id ? "animate-spin" : ""}`} />
+                    Retry
+                  </button>
                 )}
               </motion.li>
             ))}

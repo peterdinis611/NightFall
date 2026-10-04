@@ -1,6 +1,6 @@
 import { Link } from "@tanstack/react-router"
 import { useConvexAuth, useQuery } from "convex/react"
-import { useAuthActions, useAuthToken } from "@convex-dev/auth/react"
+import { useAuthActions } from "@convex-dev/auth/react"
 import * as DropdownMenu from "@radix-ui/react-dropdown-menu"
 import { api } from "@convex/_generated/api"
 import {
@@ -19,18 +19,13 @@ import { AmbientSoundToggle } from "~/components/shared/AmbientSoundToggle"
 import { AppBrand } from "~/components/shared/AppBrand"
 import { useTheme } from "~/lib/theme"
 import { cn } from "~/lib/utils"
-import { hasStoredAuthSession } from "~/db/authTokens"
 
 export function AppNav() {
   const { isAuthenticated, isLoading } = useConvexAuth()
-  const authToken = useAuthToken()
   const { theme } = useTheme()
   const { signOut } = useAuthActions()
 
-  const signedIn =
-    isAuthenticated || Boolean(authToken) || (!isLoading && hasStoredAuthSession())
-
-  const user = useQuery(api.users.current, signedIn ? {} : "skip")
+  const user = useQuery(api.users.current, isAuthenticated ? {} : "skip")
 
   const profileLabel =
     user?.name?.trim() ||
@@ -49,28 +44,22 @@ export function AppNav() {
           className="group flex items-center gap-3 font-serif font-semibold tracking-wide transition-colors"
         >
           <motion.span
-            className="relative flex size-9 items-center justify-center rounded-lg border bg-[var(--surface-bg)]"
+            className="relative flex size-9 items-center justify-center rounded-sm border bg-[var(--surface-bg)]"
             style={{ borderColor: "var(--border)" }}
-            whileHover={{ scale: 1.05 }}
+            whileHover={{ scale: 1.04 }}
             animate={{
-              boxShadow: theme === "light"
-                ? [
-                    "0 0 0 0 rgba(159,18,57,0)",
-                    "0 0 0 4px rgba(159,18,57,0.08)",
-                    "0 0 0 0 rgba(159,18,57,0)",
-                  ]
-                : [
-                    "0 0 0 0 rgba(196,30,58,0)",
-                    "0 0 0 4px rgba(196,30,58,0.1)",
-                    "0 0 0 0 rgba(196,30,58,0)",
-                  ],
+              boxShadow: [
+                "0 0 0 0 transparent",
+                "0 0 0 4px color-mix(in srgb, var(--verdigris) 18%, transparent)",
+                "0 0 0 0 transparent",
+              ],
             }}
-            transition={{ duration: 3, repeat: Infinity }}
+            transition={{ duration: 3.5, repeat: Infinity }}
           >
             {theme === "light" ? (
-              <Sun className="size-4" style={{ color: "#9f1239" }} />
+              <Sun className="size-4" style={{ color: "var(--blood)" }} />
             ) : (
-              <Ghost className="size-4" style={{ color: "#e8a0a8" }} />
+              <Ghost className="size-4" style={{ color: "var(--verdigris)" }} />
             )}
           </motion.span>
           <AppBrand split className="text-fg group-hover:opacity-80 transition-opacity text-lg" />
@@ -80,9 +69,9 @@ export function AppNav() {
           <AmbientSoundToggle />
           <ThemeToggle />
 
-          {isLoading && !signedIn ? (
+          {isLoading && !isAuthenticated ? (
             <div className="h-9 w-28 rounded-xl bg-[var(--surface-bg)] animate-pulse" />
-          ) : signedIn ? (
+          ) : isAuthenticated ? (
             <ProfileDropdown
               label={profileLabel}
               initial={profileInitial}
@@ -95,11 +84,11 @@ export function AppNav() {
             <Link
               to="/auth"
               search={{ redirect: undefined }}
-              className="flex items-center gap-1.5 rounded-xl border px-3.5 py-2 text-xs font-medium transition-all"
+              className="flex items-center gap-1.5 rounded-sm border px-3.5 py-2 text-xs font-medium transition-all"
               style={{
-                borderColor: "rgba(159,18,57,0.2)",
-                backgroundColor: theme === "light" ? "rgba(159,18,57,0.06)" : "rgba(196,30,58,0.1)",
-                color: theme === "light" ? "#9f1239" : "#e8a0a8",
+                borderColor: "color-mix(in srgb, var(--blood) 35%, transparent)",
+                backgroundColor: "color-mix(in srgb, var(--blood) 8%, transparent)",
+                color: "var(--blood)",
               }}
             >
               <LogIn className="size-3.5" />

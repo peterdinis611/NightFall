@@ -1,108 +1,159 @@
 import { useRef } from "react"
 import { motion, useInView } from "framer-motion"
-import { Sparkles, Headphones, BookMarked, Eye, Zap, Moon } from "lucide-react"
+import { Eye, Feather, Moon } from "lucide-react"
+
+const STEPS = [
+  {
+    folio: "ii",
+    icon: Eye,
+    title: "Confess",
+    desc: "Write the thing you avoid saying out loud.",
+  },
+  {
+    folio: "iii",
+    icon: Feather,
+    title: "Inscribe",
+    desc: "The model presses your fear into scenes and silence.",
+  },
+  {
+    folio: "iv",
+    icon: Moon,
+    title: "Endure",
+    desc: "Read until the room feels thinner than before.",
+  },
+]
 
 const FEATURES = [
   {
-    icon: Sparkles,
-    title: "AI-Generated Horror",
-    desc: "Describe your fear — GPT-4o weaves it into a unique, atmospheric nightmare tailored to your prompt.",
-    color: "text-blood-400",
-    glow: "rgba(220,38,38,0.08)",
+    mark: "I",
+    title: "Summoned by prompt",
+    desc: "Name what scares you. GPT-4o builds a story that circles it until looking away costs more.",
   },
   {
-    icon: Headphones,
-    title: "Immersive Player",
-    desc: "Eight mood-driven scene backgrounds, typewriter narration, and cross-faded audio pull you into the story.",
-    color: "text-violet-400",
-    glow: "rgba(139,92,246,0.08)",
+    mark: "II",
+    title: "Atmosphere that sticks",
+    desc: "Mood, pacing, and low ambient sound — designed so the silence after reading still feels wrong.",
   },
   {
-    icon: BookMarked,
-    title: "Your Dark Library",
-    desc: "Every story is saved. Re-read, share publicly, or delete the ones that disturbed you too much.",
-    color: "text-ember-400",
-    glow: "rgba(249,115,22,0.08)",
+    mark: "III",
+    title: "A private graveyard",
+    desc: "Stories remain in your library. Revisit them, share the ones that haunt you, bury the rest.",
   },
 ]
 
-const STEPS = [
-  { icon: Eye,  step: "01", title: "Describe",  desc: "Write what terrifies you" },
-  { icon: Zap,  step: "02", title: "Generate",  desc: "AI summons your story" },
-  { icon: Moon, step: "03", title: "Experience", desc: "Read in the dark" },
-]
+const stagger = {
+  hidden: {},
+  show: { transition: { staggerChildren: 0.1 } },
+}
+
+const fadeUp = {
+  hidden: { opacity: 0, y: 24 },
+  show: {
+    opacity: 1,
+    y: 0,
+    transition: { duration: 0.55, ease: [0.22, 1, 0.36, 1] },
+  },
+}
 
 export function LandingFeatures() {
   const ref = useRef(null)
   const inView = useInView(ref, { once: true, margin: "-80px" })
 
   return (
-    <section id="features" ref={ref} className="relative px-4 py-24 sm:py-32">
-      <div className="max-w-5xl mx-auto">
-        {/* Section header */}
+    <section id="features" ref={ref} className="relative px-5 py-28 sm:py-36 overflow-hidden">
+      <div
+        className="absolute left-[-4%] bottom-[8%] font-serif text-[18rem] leading-none select-none pointer-events-none opacity-[0.03] dark:opacity-[0.045] text-[var(--blood)]"
+        aria-hidden
+      >
+        &
+      </div>
+
+      <div className="max-w-6xl mx-auto">
         <motion.div
-          initial={{ opacity: 0, y: 24 }}
-          animate={inView ? { opacity: 1, y: 0 } : {}}
-          transition={{ duration: 0.7 }}
-          className="text-center mb-16"
+          initial={{ opacity: 0, x: -28 }}
+          animate={inView ? { opacity: 1, x: 0 } : {}}
+          transition={{ duration: 0.55, ease: [0.22, 1, 0.36, 1] }}
+          className="mb-20 sm:mb-28 max-w-xl"
         >
-          <p className="label-section !text-violet-400/60">How it works</p>
-          <h2 className="font-serif text-3xl sm:text-4xl font-semibold text-fg mt-2">
-            From fear to <span className="text-gradient italic">fiction</span>
+          <p className="font-marginalia text-[11px] text-[var(--verdigris)] mb-4">
+            fol. ii · the ritual
+          </p>
+          <h2 className="font-serif text-4xl sm:text-5xl lg:text-[3.5rem] text-fg leading-[1.08] tracking-tight">
+            From dread to
+            <br />
+            <span className="text-gradient italic pl-6 sm:pl-12">something worse</span>
           </h2>
+          <div className="manuscript-rule mt-8 w-40" />
         </motion.div>
 
-        {/* Steps */}
-        <div className="flex flex-col sm:flex-row items-center justify-center gap-6 sm:gap-4 mb-20">
+        {/* Asymmetric ritual steps — not a card grid */}
+        <motion.ol
+          variants={stagger}
+          initial="hidden"
+          animate={inView ? "show" : "hidden"}
+          className="relative mb-28 space-y-0"
+        >
           {STEPS.map((step, i) => (
-            <motion.div
-              key={step.step}
-              initial={{ opacity: 0, y: 20 }}
-              animate={inView ? { opacity: 1, y: 0 } : {}}
-              transition={{ duration: 0.5, delay: 0.1 + i * 0.15 }}
-              className="flex items-center gap-4 sm:flex-col sm:text-center"
+            <motion.li
+              key={step.folio}
+              variants={fadeUp}
+              className={`relative flex gap-6 sm:gap-10 py-8 border-t border-[var(--border)] ${
+                i === STEPS.length - 1 ? "border-b" : ""
+              } ${i % 2 === 1 ? "sm:pl-16 lg:pl-28" : ""}`}
             >
-              <div className="relative">
-                <div className="flex size-14 items-center justify-center rounded-2xl border border-[var(--border)] bg-[var(--surface-bg)]">
-                  <step.icon className="size-6 text-muted" />
+              <span className="font-marginalia text-sm text-[var(--verdigris)] shrink-0 pt-1 w-10">
+                {step.folio}
+              </span>
+              <div className="flex-1 min-w-0">
+                <div className="flex items-center gap-3 mb-2">
+                  <step.icon className="size-4 text-[var(--blood)] opacity-70" strokeWidth={1.25} />
+                  <h3 className="font-serif text-2xl sm:text-3xl text-fg">{step.title}</h3>
                 </div>
-                <span className="absolute -top-2 -right-2 font-mono text-[9px] text-blood-500/70">
-                  {step.step}
-                </span>
+                <p className="font-sans text-muted text-base leading-relaxed max-w-md italic">
+                  {step.desc}
+                </p>
               </div>
-              <div className="sm:mt-3">
-                <p className="font-semibold text-sm text-fg">{step.title}</p>
-                <p className="text-xs text-muted">{step.desc}</p>
-              </div>
-              {i < STEPS.length - 1 && (
-                <div className="hidden sm:block w-12 h-px bg-gradient-to-r from-white/10 to-transparent mx-2" />
-              )}
-            </motion.div>
+              <span
+                className="hidden sm:block font-serif text-5xl text-[var(--blood)] opacity-[0.12] leading-none select-none"
+                aria-hidden
+              >
+                {String(i + 1).padStart(2, "0")}
+              </span>
+            </motion.li>
           ))}
-        </div>
+        </motion.ol>
 
-        {/* Feature cards */}
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-5">
+        {/* Features as manuscript columns — staggered, not equal cards */}
+        <motion.div
+          variants={stagger}
+          initial="hidden"
+          animate={inView ? "show" : "hidden"}
+          className="grid grid-cols-1 lg:grid-cols-12 gap-8 lg:gap-6"
+        >
           {FEATURES.map((feat, i) => (
-            <motion.div
+            <motion.article
               key={feat.title}
-              initial={{ opacity: 0, y: 30 }}
-              animate={inView ? { opacity: 1, y: 0 } : {}}
-              transition={{ duration: 0.6, delay: 0.3 + i * 0.12 }}
-              whileHover={{ y: -4, transition: { duration: 0.2 } }}
-              className="surface p-6 group cursor-default"
-              style={{ boxShadow: `0 8px 40px rgba(0,0,0,0.4), inset 0 1px 0 rgba(255,255,255,0.04), 0 0 40px ${feat.glow}` }}
+              variants={fadeUp}
+              className={`lg:col-span-4 ${
+                i === 0 ? "lg:col-span-5 lg:-mt-4" : i === 1 ? "lg:col-span-3 lg:mt-12" : "lg:col-span-4 lg:mt-6"
+              }`}
             >
-              <div className={`mb-4 flex size-11 items-center justify-center rounded-xl border border-[var(--border)] bg-[var(--surface-bg)] ${feat.color} group-hover:scale-110 transition-transform duration-300`}>
-                <feat.icon className="size-5" />
+              <div className="manuscript-leaf p-1">
+                <div className="px-5 py-7 sm:px-6 sm:py-8">
+                  <span className="font-serif text-4xl italic text-[var(--blood)] opacity-30 block mb-4">
+                    {feat.mark}
+                  </span>
+                  <h3 className="font-serif text-xl sm:text-2xl text-fg mb-3 leading-tight">
+                    {feat.title}
+                  </h3>
+                  <p className="font-sans text-sm sm:text-[0.95rem] text-muted leading-relaxed">
+                    {feat.desc}
+                  </p>
+                </div>
               </div>
-              <h3 className="font-serif text-lg font-semibold text-fg mb-2">
-                {feat.title}
-              </h3>
-              <p className="text-sm text-muted leading-relaxed">{feat.desc}</p>
-            </motion.div>
+            </motion.article>
           ))}
-        </div>
+        </motion.div>
       </div>
     </section>
   )

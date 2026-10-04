@@ -58,15 +58,8 @@ export async function passwordSignIn(
 
 export async function anonymousSignIn(
   destination: string,
-  client?: ConvexHttpClient,
+  _client?: ConvexHttpClient,
 ): Promise<void> {
-  const result = await callAuthSignIn("anonymous", {}, client)
-
-  if (result.tokens?.token && result.tokens.refreshToken) {
-    storeAuthTokens(result.tokens)
-    redirectAfterAuth(destination)
-    return
-  }
-
-  throw new Error("Guest sign-in did not return a session.")
+  const { establishGuestSession } = await import("~/lib/guestSignIn")
+  await establishGuestSession(destination)
 }
