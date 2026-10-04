@@ -1,9 +1,7 @@
 "use client"
 import { useState, useEffect, useRef } from "react"
 import { useNavigate } from "@tanstack/react-router"
-import { useMutation } from "convex/react"
-import { useConvexAuth } from "convex/react"
-import { useAuthActions } from "@convex-dev/auth/react"
+import { useMutation, useConvexAuth } from "convex/react"
 import { api } from "@convex/_generated/api"
 import { cn } from "~/lib/utils"
 import { ToneSelector, type Tone } from "./ToneSelector"
@@ -20,6 +18,7 @@ import {
 } from "~/lib/pendingPrompt"
 import { TEST_CASES } from "~/lib/testCases"
 import { BloodSpinner } from "~/components/shared/BloodSpinner"
+import { establishGuestSession } from "~/lib/guestSignIn"
 
 const PLACEHOLDER_PROMPTS = [
   "Something lives in the walls of my apartment. It knows my name.",
@@ -34,21 +33,19 @@ const showTestCases = import.meta.env.DEV
 export function PromptForm() {
   const navigate = useNavigate()
   const { isAuthenticated, isLoading: authLoading } = useConvexAuth()
-  const { signIn } = useAuthActions()
   const createShell = useMutation(api.stories.createStoryShell)
   const autoSubmitRef = useRef(false)
-  const guestPendingRef = useRef(false)
 
-  const [prompt, setPrompt]   = useState("")
-  const [theme, setTheme]     = useState("")
-  const [tone, setTone]       = useState<Tone>("atmospheric")
-  const [length, setLength]   = useState<Length>("medium")
+  const [prompt, setPrompt] = useState("")
+  const [theme, setTheme] = useState("")
+  const [tone, setTone] = useState<Tone>("atmospheric")
+  const [length, setLength] = useState<Length>("medium")
   const [loading, setLoading] = useState(false)
   const [phase, setPhase] = useState<"guest" | "summoning" | null>(null)
-  const [error, setError]     = useState<string | null>(null)
+  const [error, setError] = useState<string | null>(null)
 
   const [placeholder] = useState(
-    () => PLACEHOLDER_PROMPTS[Math.floor(Math.random() * PLACEHOLDER_PROMPTS.length)]
+    () => PLACEHOLDER_PROMPTS[Math.floor(Math.random() * PLACEHOLDER_PROMPTS.length)],
   )
 
   async function startGeneration(values: PendingPrompt) {
@@ -59,37 +56,34 @@ export function PromptForm() {
     try {
       const { storyId, slug } = await createShell({
         prompt: values.prompt.trim(),
-        theme:  values.theme || values.prompt.trim(),
+        theme: values.theme || values.prompt.trim(),
         tone: values.tone,
         length: values.length,
       })
       clearPendingPrompt()
-      guestPendingRef.current = false
       navigate({ to: "/generate", search: { storyId, slug } })
     } catch (err) {
       const msg = err instanceof Error ? err.message : "Something went wrong"
-      if (msg.toLowerCase().includes("authentication")) {
+      if (msg.toLowerCase().includes("authentication") || msg.toLowerCase().includes("not authenticated")) {
         savePendingPrompt(values)
-        navigate({ to: "/auth", search: { redirect: "/" } })
+        setError("Session expired. Try Generate again — we'll sign you in as guest.")
+        setLoading(false)
+        setPhase(null)
+        autoSubmitRef.current = false
         return
       }
       setError(msg)
       setLoading(false)
       setPhase(null)
-      guestPendingRef.current = false
+      autoSubmitRef.current = false
     }
   }
 
-  // After guest sign-in or return from /auth — restore draft and submit once
+  // After guest hard-reload (or return from /auth) — restore draft and submit once
   useEffect(() => {
     if (authLoading || !isAuthenticated || autoSubmitRef.current) return
     const pending = readPendingPrompt()
-    if (!pending?.prompt?.trim()) {
-      if (guestPendingRef.current) {
-        guestPendingRef.current = false
-      }
-      return
-    }
+    if (!pending?.prompt?.trim()) return
 
     autoSubmitRef.current = true
     setPrompt(pending.prompt)
@@ -99,43 +93,35 @@ export function PromptForm() {
     void startGeneration(pending)
   }, [authLoading, isAuthenticated])
 
+  // Restore draft into the form even before auth finishes (so reload feels continuous)
+  useEffect(() => {
+    const pending = readPendingPrompt()
+    if (!pending?.prompt?.trim()) return
+    setPrompt(pending.prompt)
+    setTheme(pending.theme)
+    setTone(pending.tone)
+    setLength(pending.length)
+    if (!isAuthenticated) {
+      setLoading(true)
+      setPhase("guest")
+    }
+  }, [])
+
   async function continueAsGuest(values: PendingPrompt) {
+    if (!values.prompt.trim()) return
     setLoading(true)
     setPhase("guest")
     setError(null)
     savePendingPrompt(values)
-    guestPendingRef.current = true
     try {
-      await Promise.race([
-        signIn("anonymous"),
-        new Promise<never>((_, reject) => {
-          window.setTimeout(() => {
-            reject(new Error("Guest sign-in timed out. Try again, or sign in with email."))
-          }, 15000)
-        }),
-      ])
-      // Effect above will auto-submit once isAuthenticated flips
+      await establishGuestSession("/#generate")
+      // page unloads
     } catch (err) {
-      guestPendingRef.current = false
       setError(formatAuthError(err, "signIn"))
       setLoading(false)
       setPhase(null)
     }
   }
-
-  // If guest signed in but auto-submit never started, surface it
-  useEffect(() => {
-    if (!loading || phase !== "guest") return
-    const id = window.setTimeout(() => {
-      if (!isAuthenticated) {
-        guestPendingRef.current = false
-        setError("Still waiting for a guest session. Check your connection, then try again.")
-        setLoading(false)
-        setPhase(null)
-      }
-    }, 18000)
-    return () => window.clearTimeout(id)
-  }, [loading, phase, isAuthenticated])
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
@@ -148,7 +134,12 @@ export function PromptForm() {
       length,
     }
 
-    if (!authLoading && !isAuthenticated) {
+    if (authLoading) {
+      setError("Auth is still loading — wait a moment and try again.")
+      return
+    }
+
+    if (!isAuthenticated) {
       await continueAsGuest(values)
       return
     }
@@ -197,7 +188,7 @@ export function PromptForm() {
           className={cn(
             "input-field resize-none px-5 py-4 font-serif text-lg leading-relaxed",
             "placeholder:text-night-500/80",
-            loading && "opacity-60 pointer-events-none"
+            loading && "opacity-60 pointer-events-none",
           )}
         />
         <span className="absolute bottom-3 right-4 text-[10px] text-night-600 font-mono tabular-nums">

@@ -1,4 +1,4 @@
-import { useRef } from "react"
+import { useEffect, useRef } from "react"
 import { createFileRoute } from "@tanstack/react-router"
 import { motion } from "framer-motion"
 import { ThemeAmbient } from "~/components/layout/ThemeAmbient"
@@ -20,6 +20,15 @@ function HomePage() {
   function scrollToForm() {
     formRef.current?.scrollIntoView({ behavior: "smooth", block: "start" })
   }
+
+  // Guest sign-in hard-reloads to /#generate — land on the form
+  useEffect(() => {
+    if (window.location.hash !== "#generate") return
+    const id = window.setTimeout(() => {
+      formRef.current?.scrollIntoView({ behavior: "instant", block: "start" })
+    }, 50)
+    return () => window.clearTimeout(id)
+  }, [])
 
   return (
     <div className="relative dark:bg-[var(--background)]">

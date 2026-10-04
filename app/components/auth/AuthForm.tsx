@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react"
 import { useNavigate } from "@tanstack/react-router"
 import { useAuthActions } from "@convex-dev/auth/react"
+import { establishGuestSession } from "~/lib/guestSignIn"
 import { useConvexAuth, useQuery } from "convex/react"
 import { api } from "@convex/_generated/api"
 import { motion, AnimatePresence } from "framer-motion"
@@ -97,8 +98,8 @@ export function AuthForm({ redirectTo = "/" }: AuthFormProps) {
     setLoading("anonymous")
     setError(null)
     try {
-      await signIn("anonymous")
-      // navigate happens in effect once user query resolves
+      await establishGuestSession(destination.startsWith("/") ? destination : `/${destination}`)
+      // hard reload — session is in localStorage
     } catch (err) {
       setError(formatAuthError(err, mode))
       setLoading(null)
