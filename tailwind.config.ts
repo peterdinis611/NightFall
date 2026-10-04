@@ -6,9 +6,10 @@ export default {
   theme: {
     extend: {
       fontFamily: {
-        serif: ["'Cormorant Garamond'", "'Georgia'", "serif"],
+        serif: ["'IM Fell English'", "'Times New Roman'", "serif"],
+        sans:  ["'Crimson Pro'", "'Georgia'", "serif"],
         mono:  ["'IBM Plex Mono'", "monospace"],
-        sans:  ["'Literata'", "'Georgia'", "serif"],
+        marginalia: ["'Special Elite'", "'Courier New'", "monospace"],
       },
       colors: {
         night: {
@@ -74,8 +75,8 @@ export default {
         "glitch-1":     "glitch1 0.15s steps(2) forwards",
         "glitch-2":     "glitch2 0.15s steps(2) forwards",
         "pulse-slow":   "pulseSlow 4s ease-in-out infinite",
-        marquee:        "marquee 10s linear infinite",
-        "marquee-reverse": "marquee-reverse 12s linear infinite",
+        marquee:        "marquee 22s linear infinite",
+        "marquee-reverse": "marquee-reverse 28s linear infinite",
       },
       keyframes: {
         fogDrift: {

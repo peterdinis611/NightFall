@@ -9,8 +9,8 @@ import { cn } from "~/lib/utils"
 import { ToneSelector, type Tone } from "./ToneSelector"
 import { LengthSelector, type Length } from "./LengthSelector"
 import { ThemeGrid } from "./ThemeGrid"
-import { Skull, Sparkles, AlertCircle, Ghost, LogIn } from "lucide-react"
-import { motion } from "framer-motion"
+import { Skull, AlertCircle, Ghost, LogIn } from "lucide-react"
+import { AnimatePresence, motion } from "framer-motion"
 import { formatAuthError } from "~/lib/formatAuthError"
 import {
   clearPendingPrompt,
@@ -18,6 +18,8 @@ import {
   savePendingPrompt,
   type PendingPrompt,
 } from "~/lib/pendingPrompt"
+import { TEST_CASES } from "~/lib/testCases"
+import { BloodSpinner } from "~/components/shared/BloodSpinner"
 
 const PLACEHOLDER_PROMPTS = [
   "Something lives in the walls of my apartment. It knows my name.",
@@ -26,6 +28,8 @@ const PLACEHOLDER_PROMPTS = [
   "We found a door at the bottom of the lake.",
   "My reflection stopped following me three days ago.",
 ]
+
+const showTestCases = import.meta.env.DEV
 
 export function PromptForm() {
   const navigate = useNavigate()
@@ -40,6 +44,7 @@ export function PromptForm() {
   const [tone, setTone]       = useState<Tone>("atmospheric")
   const [length, setLength]   = useState<Length>("medium")
   const [loading, setLoading] = useState(false)
+  const [phase, setPhase] = useState<"guest" | "summoning" | null>(null)
   const [error, setError]     = useState<string | null>(null)
 
   const [placeholder] = useState(
@@ -48,6 +53,7 @@ export function PromptForm() {
 
   async function startGeneration(values: PendingPrompt) {
     setLoading(true)
+    setPhase("summoning")
     setError(null)
 
     try {
@@ -69,6 +75,7 @@ export function PromptForm() {
       }
       setError(msg)
       setLoading(false)
+      setPhase(null)
       guestPendingRef.current = false
     }
   }
@@ -94,19 +101,41 @@ export function PromptForm() {
 
   async function continueAsGuest(values: PendingPrompt) {
     setLoading(true)
+    setPhase("guest")
     setError(null)
     savePendingPrompt(values)
     guestPendingRef.current = true
     try {
-      // Goes through ConvexAuthProvider storage (namespaced keys)
-      await signIn("anonymous")
+      await Promise.race([
+        signIn("anonymous"),
+        new Promise<never>((_, reject) => {
+          window.setTimeout(() => {
+            reject(new Error("Guest sign-in timed out. Try again, or sign in with email."))
+          }, 15000)
+        }),
+      ])
       // Effect above will auto-submit once isAuthenticated flips
     } catch (err) {
       guestPendingRef.current = false
       setError(formatAuthError(err, "signIn"))
       setLoading(false)
+      setPhase(null)
     }
   }
+
+  // If guest signed in but auto-submit never started, surface it
+  useEffect(() => {
+    if (!loading || phase !== "guest") return
+    const id = window.setTimeout(() => {
+      if (!isAuthenticated) {
+        guestPendingRef.current = false
+        setError("Still waiting for a guest session. Check your connection, then try again.")
+        setLoading(false)
+        setPhase(null)
+      }
+    }, 18000)
+    return () => window.clearTimeout(id)
+  }, [loading, phase, isAuthenticated])
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
@@ -129,12 +158,35 @@ export function PromptForm() {
 
   const needsAuth = !authLoading && !isAuthenticated
 
+  const loadingLabel =
+    phase === "guest"
+      ? "Entering as guest…"
+      : phase === "summoning"
+        ? "Opening the story shell…"
+        : "Working…"
+
   return (
     <motion.form
       onSubmit={handleSubmit}
       initial={false}
-      className="flex flex-col gap-5 w-full"
+      className="relative flex flex-col gap-5 w-full"
     >
+      <AnimatePresence>
+        {loading && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="absolute inset-0 z-20 flex flex-col items-center justify-center gap-3 rounded-sm bg-[var(--card)]/90 backdrop-blur-[2px]"
+          >
+            <BloodSpinner size="md" label={loadingLabel} />
+            <p className="font-marginalia text-[10px] text-[var(--verdigris)] tracking-wide">
+              keep this page open
+            </p>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
       <div className="relative group">
         <textarea
           value={prompt}
@@ -152,6 +204,34 @@ export function PromptForm() {
           {prompt.length}/400
         </span>
       </div>
+
+      {showTestCases && (
+        <div className="rounded-sm border border-[var(--border)] bg-[var(--surface-bg)] px-3 py-3">
+          <p className="font-marginalia text-[11px] text-[var(--verdigris)] mb-2">
+            test pages · dev only
+          </p>
+          <div className="flex flex-wrap gap-1.5">
+            {TEST_CASES.map((tc) => (
+              <button
+                key={tc.id}
+                type="button"
+                title={tc.note}
+                disabled={loading}
+                onClick={() => {
+                  setPrompt(tc.prompt)
+                  setTheme(tc.theme)
+                  setTone(tc.tone)
+                  setLength(tc.length)
+                  setError(null)
+                }}
+                className="chip !text-[11px] !py-1 disabled:opacity-40"
+              >
+                {tc.label}
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
 
       <div className="divider-gradient" />
 
@@ -187,8 +267,8 @@ export function PromptForm() {
       >
         {loading ? (
           <>
-            <Sparkles className="size-5 animate-shimmer" />
-            {needsAuth ? "Entering as guest…" : "Summoning your story…"}
+            <BloodSpinner size="sm" />
+            {loadingLabel}
           </>
         ) : (
           <>

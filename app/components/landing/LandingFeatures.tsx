@@ -1,42 +1,58 @@
 import { useRef } from "react"
 import { motion, useInView } from "framer-motion"
-import { Sparkles, Headphones, BookMarked, Eye, Zap, Moon } from "lucide-react"
+import { Eye, Feather, Moon } from "lucide-react"
 
-const FEATURES = [
+const STEPS = [
   {
-    roman: "I",
-    icon: Sparkles,
-    title: "AI-Generated Horror",
-    desc: "Describe your fear — GPT-4o weaves it into a unique, atmospheric nightmare tailored to your prompt.",
+    folio: "ii",
+    icon: Eye,
+    title: "Confess",
+    desc: "Write the thing you avoid saying out loud.",
   },
   {
-    roman: "II",
-    icon: Headphones,
-    title: "Immersive Player",
-    desc: "Eight mood-driven scene backgrounds, typewriter narration, and cross-faded audio pull you into the story.",
+    folio: "iii",
+    icon: Feather,
+    title: "Inscribe",
+    desc: "The model presses your fear into scenes and silence.",
   },
   {
-    roman: "III",
-    icon: BookMarked,
-    title: "Your Dark Library",
-    desc: "Every story is saved. Re-read, share publicly, or delete the ones that disturbed you too much.",
+    folio: "iv",
+    icon: Moon,
+    title: "Endure",
+    desc: "Read until the room feels thinner than before.",
   },
 ]
 
-const STEPS = [
-  { icon: Eye,  step: "01", title: "Describe",   desc: "Write what terrifies you" },
-  { icon: Zap,  step: "02", title: "Generate",   desc: "AI summons your story" },
-  { icon: Moon, step: "03", title: "Experience", desc: "Read in the dark" },
+const FEATURES = [
+  {
+    mark: "I",
+    title: "Summoned by prompt",
+    desc: "Name what scares you. GPT-4o builds a story that circles it until looking away costs more.",
+  },
+  {
+    mark: "II",
+    title: "Atmosphere that sticks",
+    desc: "Mood, pacing, and low ambient sound — designed so the silence after reading still feels wrong.",
+  },
+  {
+    mark: "III",
+    title: "A private graveyard",
+    desc: "Stories remain in your library. Revisit them, share the ones that haunt you, bury the rest.",
+  },
 ]
 
 const stagger = {
   hidden: {},
-  show: { transition: { staggerChildren: 0.06 } },
+  show: { transition: { staggerChildren: 0.1 } },
 }
 
 const fadeUp = {
-  hidden: { opacity: 0, y: 20 },
-  show: { opacity: 1, y: 0, transition: { duration: 0.4, ease: [0.22, 1, 0.36, 1] } },
+  hidden: { opacity: 0, y: 24 },
+  show: {
+    opacity: 1,
+    y: 0,
+    transition: { duration: 0.55, ease: [0.22, 1, 0.36, 1] },
+  },
 }
 
 export function LandingFeatures() {
@@ -44,106 +60,97 @@ export function LandingFeatures() {
   const inView = useInView(ref, { once: true, margin: "-80px" })
 
   return (
-    <section id="features" ref={ref} className="relative px-4 py-28 sm:py-36 overflow-hidden">
-      {/* Background glyph */}
+    <section id="features" ref={ref} className="relative px-5 py-28 sm:py-36 overflow-hidden">
       <div
-        className="absolute right-[-5%] top-[10%] font-serif text-[20rem] leading-none select-none pointer-events-none opacity-[0.015] dark:opacity-[0.025] text-blood-900"
+        className="absolute left-[-4%] bottom-[8%] font-serif text-[18rem] leading-none select-none pointer-events-none opacity-[0.03] dark:opacity-[0.045] text-[var(--blood)]"
         aria-hidden
       >
-        ✦
+        &
       </div>
 
       <div className="max-w-6xl mx-auto">
-        {/* Asymmetric header */}
         <motion.div
-          initial={{ opacity: 0, x: -32 }}
+          initial={{ opacity: 0, x: -28 }}
           animate={inView ? { opacity: 1, x: 0 } : {}}
-          transition={{ duration: 0.45, ease: [0.22, 1, 0.36, 1] }}
-          className="mb-20 sm:mb-28 max-w-2xl"
+          transition={{ duration: 0.55, ease: [0.22, 1, 0.36, 1] }}
+          className="mb-20 sm:mb-28 max-w-xl"
         >
-          <p className="editorial-label mb-5">How it works</p>
-          <h2 className="font-serif text-4xl sm:text-5xl lg:text-[3.75rem] font-medium text-fg leading-[1.08] tracking-tight">
-            From fear to
+          <p className="font-marginalia text-[11px] text-[var(--verdigris)] mb-4">
+            fol. ii · the ritual
+          </p>
+          <h2 className="font-serif text-4xl sm:text-5xl lg:text-[3.5rem] text-fg leading-[1.08] tracking-tight">
+            From dread to
             <br />
-            <span className="text-gradient italic font-semibold pl-4 sm:pl-8">fiction</span>
+            <span className="text-gradient italic pl-6 sm:pl-12">something worse</span>
           </h2>
-          <div className="manuscript-rule mt-8 w-32 sm:w-48" />
+          <div className="manuscript-rule mt-8 w-40" />
         </motion.div>
 
-        {/* Ritual steps — diagonal connector on desktop */}
-        <motion.div
+        {/* Asymmetric ritual steps — not a card grid */}
+        <motion.ol
           variants={stagger}
           initial="hidden"
           animate={inView ? "show" : "hidden"}
-          className="relative mb-24 sm:mb-32"
+          className="relative mb-28 space-y-0"
         >
-          {/* Connecting line */}
-          <div
-            className="hidden lg:block absolute top-1/2 left-[8%] right-[8%] h-px -translate-y-1/2 pointer-events-none"
-            style={{
-              background:
-                "linear-gradient(90deg, transparent, rgba(139,21,56,0.25) 15%, rgba(139,21,56,0.25) 85%, transparent)",
-            }}
-          />
-
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-10 sm:gap-6">
-            {STEPS.map((step, i) => (
-              <motion.div
-                key={step.step}
-                variants={fadeUp}
-                className={`relative flex sm:flex-col items-start sm:items-center gap-5 sm:text-center ${
-                  i === 1 ? "sm:mt-6" : ""
-                }`}
+          {STEPS.map((step, i) => (
+            <motion.li
+              key={step.folio}
+              variants={fadeUp}
+              className={`relative flex gap-6 sm:gap-10 py-8 border-t border-[var(--border)] ${
+                i === STEPS.length - 1 ? "border-b" : ""
+              } ${i % 2 === 1 ? "sm:pl-16 lg:pl-28" : ""}`}
+            >
+              <span className="font-marginalia text-sm text-[var(--verdigris)] shrink-0 pt-1 w-10">
+                {step.folio}
+              </span>
+              <div className="flex-1 min-w-0">
+                <div className="flex items-center gap-3 mb-2">
+                  <step.icon className="size-4 text-[var(--blood)] opacity-70" strokeWidth={1.25} />
+                  <h3 className="font-serif text-2xl sm:text-3xl text-fg">{step.title}</h3>
+                </div>
+                <p className="font-sans text-muted text-base leading-relaxed max-w-md italic">
+                  {step.desc}
+                </p>
+              </div>
+              <span
+                className="hidden sm:block font-serif text-5xl text-[var(--blood)] opacity-[0.12] leading-none select-none"
+                aria-hidden
               >
-                <div className="relative shrink-0">
-                  <motion.div
-                    className="flex size-16 sm:size-[4.5rem] items-center justify-center border border-[var(--border)] bg-[var(--surface-bg)]"
-                    style={{
-                      clipPath: "polygon(50% 0%, 100% 25%, 100% 75%, 50% 100%, 0% 75%, 0% 25%)",
-                    }}
-                  >
-                    <step.icon className="size-6 text-blood-500 dark:text-blood-400" strokeWidth={1.5} />
-                  </motion.div>
-                  <span className="ritual-index absolute -top-3 -right-2 sm:-top-2 sm:left-1/2 sm:-translate-x-1/2 sm:-right-auto">
-                    {step.step}
-                  </span>
-                </div>
-                <div className="sm:mt-2">
-                  <p className="font-serif text-xl font-semibold text-fg mb-1">{step.title}</p>
-                  <p className="text-sm text-muted italic leading-relaxed">{step.desc}</p>
-                </div>
-              </motion.div>
-            ))}
-          </div>
-        </motion.div>
+                {String(i + 1).padStart(2, "0")}
+              </span>
+            </motion.li>
+          ))}
+        </motion.ol>
 
-        {/* Feature cards — staggered editorial grid */}
+        {/* Features as manuscript columns — staggered, not equal cards */}
         <motion.div
           variants={stagger}
           initial="hidden"
           animate={inView ? "show" : "hidden"}
-          className="grid grid-cols-1 lg:grid-cols-3 gap-6 lg:gap-5"
+          className="grid grid-cols-1 lg:grid-cols-12 gap-8 lg:gap-6"
         >
           {FEATURES.map((feat, i) => (
             <motion.article
               key={feat.title}
               variants={fadeUp}
-              className={`manuscript-card p-7 sm:p-8 group cursor-default ${
-                i === 1 ? "lg:mt-10" : i === 2 ? "lg:mt-4" : ""
+              className={`lg:col-span-4 ${
+                i === 0 ? "lg:col-span-5 lg:-mt-4" : i === 1 ? "lg:col-span-3 lg:mt-12" : "lg:col-span-4 lg:mt-6"
               }`}
             >
-              <div className="flex items-start justify-between mb-6">
-                <span className="font-serif text-3xl text-blood-500/25 dark:text-blood-400/30 font-light italic">
-                  {feat.roman}
-                </span>
-                <div className="flex size-10 items-center justify-center border border-[var(--border)] group-hover:border-[var(--border-hover)] transition-colors">
-                  <feat.icon className="size-4 text-blood-500 dark:text-blood-400" strokeWidth={1.5} />
+              <div className="manuscript-leaf p-1">
+                <div className="px-5 py-7 sm:px-6 sm:py-8">
+                  <span className="font-serif text-4xl italic text-[var(--blood)] opacity-30 block mb-4">
+                    {feat.mark}
+                  </span>
+                  <h3 className="font-serif text-xl sm:text-2xl text-fg mb-3 leading-tight">
+                    {feat.title}
+                  </h3>
+                  <p className="font-sans text-sm sm:text-[0.95rem] text-muted leading-relaxed">
+                    {feat.desc}
+                  </p>
                 </div>
               </div>
-              <h3 className="font-serif text-xl sm:text-2xl font-semibold text-fg mb-3 leading-tight">
-                {feat.title}
-              </h3>
-              <p className="text-sm text-muted leading-relaxed font-serif">{feat.desc}</p>
             </motion.article>
           ))}
         </motion.div>

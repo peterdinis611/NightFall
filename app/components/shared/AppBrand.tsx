@@ -17,14 +17,14 @@ export function AppBrand({ className, split = false }: AppBrandProps) {
   if (theme === "light") {
     return (
       <span className={className}>
-        light<span style={{ color: "#9f1239" }}>Fall</span>
+        light<span style={{ color: "var(--blood)" }}>Fall</span>
       </span>
     )
   }
 
   return (
     <span className={className}>
-      Night<span style={{ color: "#c41e3a" }}>fall</span>
+      Night<span style={{ color: "var(--blood)" }}>fall</span>
     </span>
   )
 }
@@ -34,8 +34,8 @@ export function AppTagline({ className }: { className?: string }) {
   return (
     <span className={cn(className)}>
       {theme === "light"
-        ? "where stories wake with the sun"
-        : "where fear finds form"}
+        ? "where daylight still hides things"
+        : "where fear finds a voice"}
     </span>
   )
 }
