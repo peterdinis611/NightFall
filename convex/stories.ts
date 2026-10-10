@@ -3,6 +3,7 @@ import { v } from "convex/values"
 import { mutation, query, internalMutation, internalQuery } from "./_generated/server"
 import { getAuthUserId } from "@convex-dev/auth/server"
 import { internal } from "./_generated/api"
+import { assertCanCreateStory, assertCanRetryGeneration } from "./rateLimit"
 
 // ── Queries ────────────────────────────────────────────────────────────────
 
@@ -106,18 +107,7 @@ export const createStoryShell = mutation({
     if (!prompt) throw new Error("Prompt is required")
     if (prompt.length > 400) throw new Error("Prompt must be 400 characters or fewer")
 
-    // Rate limit: max 5 stories per hour
-    const oneHourAgo = Date.now() - 60 * 60 * 1000
-    const recent = await ctx.db
-      .query("stories")
-      .withIndex("by_user", (q) =>
-        q.eq("userId", userId).gte("createdAt", oneHourAgo)
-      )
-      .collect()
-
-    if (recent.length >= 5) {
-      throw new Error("Rate limit: max 5 stories per hour. Try again later.")
-    }
+    await assertCanCreateStory(ctx, userId)
 
     const slug = generateSlug()
 
@@ -156,6 +146,8 @@ export const retryGeneration = mutation({
     if (story.status === "ready") {
       throw new Error("Story is already ready")
     }
+
+    await assertCanRetryGeneration(ctx, userId)
 
     // Clear any partial scenes from a previous failed attempt
     const existing = await ctx.db

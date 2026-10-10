@@ -1,7 +1,10 @@
 node_modules/
+.next/
 .output/
 .vinxi/
 dist/
 .env
 .env.local
 convex/_generated/
+*.tsbuildinfo
+next-env.d.ts

@@ -1,135 +1,40 @@
-# Nightfall 🌑
+# Nightfall
 
-**AI-Powered Animated Scary Story Generator**
+AI horror story generator. **Next.js App Router** frontend + **Convex** backend (auth, DB, generation, rate limits).
 
-Generate cinematic horror stories with AI. Each story is an animated, atmospheric experience with typewriter text, mood-synced backgrounds, and ambient audio cross-fades.
-
-## Stack
-
-| Layer | Tech |
-|-------|------|
-| Frontend | Vite + React SPA (TanStack Router) |
-| Backend | Convex (realtime DB, actions, auth) |
-| AI | OpenAI GPT-4o |
-| Styling | Tailwind CSS v3 |
-| Animation | Framer Motion + CSS |
-| Auth | Convex Auth (Password, GitHub, Google, Anonymous guest) |
-
-## Project structure
-
-```
-nightfall/
-├── app/
-│   ├── routes/               # File-based routes
-│   ├── components/
-│   │   ├── landing/          # Hero, marquee, features, horror FX
-│   │   ├── prompt/           # PromptForm, selectors
-│   │   ├── player/           # Story player stack
-│   │   ├── auth/             # AuthForm
-│   │   └── shared/
-│   ├── lib/                  # Theme, auth helpers, audio
-│   ├── db/                   # Client auth token storage
-│   └── styles/globals.css
-├── convex/
-│   ├── schema.ts
-│   ├── stories.ts            # Queries, mutations, scheduler kickoff
-│   ├── actions.ts            # Internal OpenAI generation action
-│   ├── auth.ts
-│   └── http.ts
-├── public/audio/             # Scene ambient WAVs
-├── scripts/generate-audio.mjs
-└── .env.example
-```
-
-## Getting started
-
-### 1. Install
+## Setup
 
 ```bash
-npm install
+cp .env.example .env.local
+# Set NEXT_PUBLIC_CONVEX_URL to your Convex deployment URL
+# Set SITE_URL=http://localhost:3000
+npx convex dev   # syncs env + generates types (separate terminal)
+npm run auth:setup
+npm run dev
 ```
 
-### 2. Convex project
+Open [http://localhost:3000](http://localhost:3000).
 
-```bash
-npx convex dev
-```
+### Convex env (dashboard or CLI)
 
-This creates `convex.json`, generates `convex/_generated/`, and prints your deployment URL.
-
-### 3. Environment
-
-Copy `.env.example` → `.env.local`:
-
-```bash
-VITE_CONVEX_URL=https://your-project.convex.cloud
-```
-
-Set **Convex dashboard → Settings → Environment Variables** (backend):
-
-| Variable | Required | Notes |
-|----------|----------|-------|
-| `OPENAI_API_KEY` | **Yes** | Story generation |
-| `SITE_URL` | **Yes** | e.g. `http://localhost:3000` |
-| `JWT_PRIVATE_KEY` / `JWKS` | **Yes** | Run `npm run auth:setup` |
-| `AUTH_GITHUB_ID` / `AUTH_GITHUB_SECRET` | Optional | GitHub OAuth |
-| `AUTH_GOOGLE_ID` / `AUTH_GOOGLE_SECRET` | Optional | Google OAuth |
-
-```bash
-npm run auth:setup   # writes JWT keys + SITE_URL to Convex
-```
-
-### 4. Run (two terminals)
-
-```bash
-npm run convex:dev   # Convex backend
-npm run dev          # Vite on http://localhost:3000
-```
-
-### 5. Audio (optional)
-
-Scene audio WAVs ship in `public/audio/`. Regenerate with:
-
-```bash
-npm run generate:audio
-```
-
-## How generation works
-
-1. User submits the prompt form (signed-in or **guest**).
-2. `createStoryShell` inserts a `generating` story and **schedules** `internal.actions.generateStory` on Convex.
-3. Generation continues even if the browser tab closes.
-4. `/generate` polls `getBySlug` until `ready` or `failed`, then redirects to the player.
-5. Library can **Resume** generating stories or **Retry** failed ones.
-
-## Privacy
-
-- New stories are **private** by default.
-- Owners can toggle public from the library (ready stories only).
-- `getBySlug` returns a story only if it is **public + ready**, or the viewer is the **owner**.
+- `OPENAI_API_KEY` — story generation
+- `SITE_URL` — auth redirects (`http://localhost:3000` locally)
+- Auth providers via `npx @convex-dev/auth`
 
 ## Scripts
 
-```bash
-npm run dev              # Vite SPA
-npm run build            # Production build → dist/
-npm run start            # Preview production build
-npm run convex:dev       # Convex local sync
-npm run convex:deploy    # Deploy Convex
-npm run auth:setup       # JWT + SITE_URL on Convex
-npm run generate:audio   # Rebuild public/audio WAVs
-npm test                 # Vitest
-```
+| Command | Description |
+|---------|-------------|
+| `npm run dev` | Next.js dev server |
+| `npm run build` / `start` | Production build / serve |
+| `npm run convex:dev` | Convex backend + codegen |
+| `npm run auth:setup` | Configure Convex Auth |
+| `npm test` | Vitest unit tests |
 
-## Story moods
+## Architecture
 
-| Mood | Sound cue (typical) |
-|------|---------------------|
-| `fog` | wind_low |
-| `silence` | deep_drone |
-| `dread` | heartbeat_low |
-| `descent` | breathing_close |
-| `static` | static_burst |
-| `pulse` | heartbeat_high |
-| `chase` | chase_strings |
-| `reveal` | choir_dissonant |
+- **Server Actions** (`app/actions/stories.ts`) — thin orchestration: validate → Convex mutation → redirect
+- **Client** — Convex React hooks for live story status, library, rate-limit UI
+- **Convex** — `createStoryShell`, scheduled `generateStory`, auth, rate limits
+
+Routes: `/`, `/auth`, `/generate`, `/library`, `/story/[slug]`
