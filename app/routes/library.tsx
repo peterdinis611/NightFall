@@ -51,6 +51,12 @@ function LibraryPage() {
     try {
       const { slug } = await retryGeneration({ storyId })
       window.location.href = `/generate?storyId=${storyId}&slug=${slug}`
+    } catch (err) {
+      const raw = err instanceof Error ? err.message : "Retry failed"
+      const msg = raw.includes("[CONVEX")
+        ? raw.match(/Uncaught Error: ([^\n]+)/)?.[1] ?? raw
+        : raw
+      window.alert(msg)
     } finally {
       setRetrying(null)
     }

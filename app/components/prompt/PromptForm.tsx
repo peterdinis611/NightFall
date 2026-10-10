@@ -1,7 +1,7 @@
 "use client"
 import { useState, useEffect, useRef } from "react"
 import { useNavigate } from "@tanstack/react-router"
-import { useMutation, useConvexAuth } from "convex/react"
+import { useMutation, useQuery, useConvexAuth } from "convex/react"
 import { api } from "@convex/_generated/api"
 import { cn } from "~/lib/utils"
 import { ToneSelector, type Tone } from "./ToneSelector"
@@ -10,6 +10,7 @@ import { ThemeGrid } from "./ThemeGrid"
 import { Skull, AlertCircle, Ghost, LogIn } from "lucide-react"
 import { AnimatePresence, motion } from "framer-motion"
 import { formatAuthError } from "~/lib/formatAuthError"
+import { formatRateLimitError } from "~/lib/formatRateLimitError"
 import {
   clearPendingPrompt,
   readPendingPrompt,
@@ -34,6 +35,7 @@ export function PromptForm() {
   const navigate = useNavigate()
   const { isAuthenticated, isLoading: authLoading } = useConvexAuth()
   const createShell = useMutation(api.stories.createStoryShell)
+  const rateLimit = useQuery(api.rateLimit.status, isAuthenticated ? {} : "skip")
   const autoSubmitRef = useRef(false)
 
   const [prompt, setPrompt] = useState("")
@@ -63,16 +65,22 @@ export function PromptForm() {
       clearPendingPrompt()
       navigate({ to: "/generate", search: { storyId, slug } })
     } catch (err) {
+      const rateLimited = formatRateLimitError(err)
       const msg = err instanceof Error ? err.message : "Something went wrong"
-      if (msg.toLowerCase().includes("authentication") || msg.toLowerCase().includes("not authenticated")) {
+      if (rateLimited) {
+        setError(rateLimited)
+      } else if (
+        msg.toLowerCase().includes("authentication") ||
+        msg.toLowerCase().includes("not authenticated")
+      ) {
         savePendingPrompt(values)
         setError("Session expired. Try Generate again — we'll sign you in as guest.")
-        setLoading(false)
-        setPhase(null)
-        autoSubmitRef.current = false
-        return
+      } else {
+        const nested = msg.includes("[CONVEX")
+          ? msg.match(/Uncaught Error: ([^\n]+)/)?.[1] ?? msg
+          : msg
+        setError(nested)
       }
-      setError(msg)
       setLoading(false)
       setPhase(null)
       autoSubmitRef.current = false
@@ -251,9 +259,25 @@ export function PromptForm() {
         </motion.div>
       )}
 
+      {rateLimit && (
+        <p className="font-marginalia text-[10px] text-[var(--verdigris)] tracking-wide text-center sm:text-left">
+          {rateLimit.generating
+            ? "a story is already in the dark — wait for it"
+            : rateLimit.cooldownRemainingMs > 0
+              ? `cooldown ${Math.ceil(rateLimit.cooldownRemainingMs / 1000)}s · ${rateLimit.remaining.hourly}/${rateLimit.limits.hourlyMax} left this hour`
+              : `${rateLimit.remaining.hourly}/${rateLimit.limits.hourlyMax} summons left this hour · ${rateLimit.remaining.daily} today${
+                  rateLimit.isAnonymous ? " · guest" : ""
+                }`}
+        </p>
+      )}
+
       <motion.button
         type="submit"
-        disabled={!prompt.trim() || loading}
+        disabled={
+          !prompt.trim() ||
+          loading ||
+          Boolean(rateLimit && !rateLimit.canCreate)
+        }
         whileTap={{ scale: 0.98 }}
         className="btn-primary w-full !py-4 !text-base mt-1"
       >

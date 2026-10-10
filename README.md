@@ -100,7 +100,7 @@ npm run generate:audio
 ## How generation works
 
 1. User submits the prompt form (signed-in or **guest**).
-2. `createStoryShell` inserts a `generating` story and **schedules** `internal.actions.generateStory` on Convex.
+2. `createStoryShell` enforces rate limits (cooldown + hourly/daily caps; stricter for guests), inserts a `generating` story, and **schedules** `internal.actions.generateStory` on Convex.
 3. Generation continues even if the browser tab closes.
 4. `/generate` polls `getBySlug` until `ready` or `failed`, then redirects to the player.
 5. Library can **Resume** generating stories or **Retry** failed ones.
