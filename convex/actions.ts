@@ -53,6 +53,26 @@ const TONE_MODIFIERS: Record<string, string> = {
 
 const SCENE_COUNTS: Record<string, number> = { short: 4, medium: 6, long: 8 }
 
+function sanitizeGenerationFailure(raw: string): string {
+  const lower = raw.toLowerCase()
+  if (lower.includes("openai_api_key") || lower.includes("api key")) {
+    return "Story generation is not configured (missing API key on the server)."
+  }
+  if (lower.includes("429") || lower.includes("rate limit") || lower.includes("quota")) {
+    return "The writing service is busy. Wait a moment and retry from your library."
+  }
+  if (lower.includes("timeout") || lower.includes("etimedout")) {
+    return "Generation timed out. Retry from your library."
+  }
+  if (lower.includes("json") || lower.includes("payload") || lower.includes("empty") || lower.includes("missing text")) {
+    return "The story came back malformed. Retry to summon it again."
+  }
+  if (raw.length > 160 || lower.includes("at handler")) {
+    return "Something went wrong while writing. Retry from your library."
+  }
+  return raw
+}
+
 /**
  * Scheduled from createStoryShell / retryGeneration — does not depend on the browser tab.
  */
@@ -134,10 +154,11 @@ export const generateStory = internalAction({
         wordCount: totalWords,
       })
     } catch (err) {
+      const raw = err instanceof Error ? err.message : "Generation failed"
       await ctx.runMutation(internal.stories.updateStoryStatus, {
         storyId,
         status: "failed",
-        errorMessage: err instanceof Error ? err.message : "Generation failed",
+        errorMessage: sanitizeGenerationFailure(raw),
       })
     }
   },

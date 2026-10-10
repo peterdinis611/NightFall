@@ -24,15 +24,14 @@ export const RATE_LIMITS = {
 
 type LimitProfile = (typeof RATE_LIMITS)["signedIn"]
 
-export type RateLimitKind = "create" | "retry"
-
 export class RateLimitError extends Error {
   constructor(
     message: string,
     public readonly code: string,
     public readonly retryAfterMs?: number,
   ) {
-    super(message)
+    // Structured payload for clients: RATE_LIMIT|CODE|retryMs|message
+    super(`RATE_LIMIT|${code}|${retryAfterMs ?? 0}|${message}`)
     this.name = "RateLimitError"
   }
 }
@@ -50,10 +49,7 @@ function formatWait(ms: number): string {
   return `${hr}h`
 }
 
-async function loadUser(
-  ctx: QueryCtx | MutationCtx,
-  userId: Id<"users">,
-) {
+async function loadUser(ctx: QueryCtx | MutationCtx, userId: Id<"users">) {
   const user = await ctx.db.get(userId)
   return {
     isAnonymous: Boolean(user?.isAnonymous),
@@ -61,19 +57,32 @@ async function loadUser(
   }
 }
 
-async function storiesSince(
+/** Newest-first window — avoid loading unbounded history. */
+async function recentStories(
+  ctx: QueryCtx | MutationCtx,
+  userId: Id<"users">,
+  since: number,
+  take: number,
+) {
+  const rows = await ctx.db
+    .query("stories")
+    .withIndex("by_user", (q) => q.eq("userId", userId).gte("createdAt", since))
+    .order("desc")
+    .take(take)
+  return rows
+}
+
+async function hasGenerating(
   ctx: QueryCtx | MutationCtx,
   userId: Id<"users">,
   since: number,
 ) {
-  return ctx.db
-    .query("stories")
-    .withIndex("by_user", (q) => q.eq("userId", userId).gte("createdAt", since))
-    .collect()
+  const rows = await recentStories(ctx, userId, since, 12)
+  return rows.some((s) => s.status === "generating")
 }
 
 /**
- * Enforce create limits. Throws RateLimitError with a user-facing message.
+ * Enforce create limits. Throws RateLimitError with a structured message.
  */
 export async function assertCanCreateStory(
   ctx: MutationCtx,
@@ -84,11 +93,12 @@ export async function assertCanCreateStory(
   const dayAgo = now - 24 * 60 * 60 * 1000
   const hourAgo = now - 60 * 60 * 1000
 
-  const recentDay = await storiesSince(ctx, userId, dayAgo)
+  // Fetch at most dailyMax+1 rows for the day window
+  const recentDay = await recentStories(ctx, userId, dayAgo, limits.dailyMax + 1)
   const recentHour = recentDay.filter((s) => s.createdAt >= hourAgo)
-  const generating = recentDay.filter((s) => s.status === "generating")
+  const generating = recentDay.some((s) => s.status === "generating")
 
-  if (generating.length >= limits.maxGenerating) {
+  if (generating) {
     throw new RateLimitError(
       "A story is already generating. Wait for it to finish before summoning another.",
       "GENERATING_IN_FLIGHT",
@@ -96,7 +106,7 @@ export async function assertCanCreateStory(
   }
 
   if (recentDay.length >= limits.dailyMax) {
-    const oldest = recentDay.reduce((a, b) => (a.createdAt < b.createdAt ? a : b))
+    const oldest = recentDay[recentDay.length - 1]
     const retryAfterMs = oldest.createdAt + 24 * 60 * 60 * 1000 - now
     throw new RateLimitError(
       `Daily limit reached (${limits.dailyMax}/day${isAnonymous ? " for guests" : ""}). Try again in ${formatWait(retryAfterMs)}.`,
@@ -106,8 +116,8 @@ export async function assertCanCreateStory(
   }
 
   if (recentHour.length >= limits.hourlyMax) {
-    const oldest = recentHour.reduce((a, b) => (a.createdAt < b.createdAt ? a : b))
-    const retryAfterMs = oldest.createdAt + 60 * 60 * 1000 - now
+    const oldestHour = [...recentHour].sort((a, b) => a.createdAt - b.createdAt)[0]
+    const retryAfterMs = oldestHour.createdAt + 60 * 60 * 1000 - now
     throw new RateLimitError(
       `Hourly limit reached (${limits.hourlyMax}/hour${isAnonymous ? " for guests" : ""}). Try again in ${formatWait(retryAfterMs)}.`,
       "HOURLY_LIMIT",
@@ -115,10 +125,7 @@ export async function assertCanCreateStory(
     )
   }
 
-  const newest = recentDay.length
-    ? recentDay.reduce((a, b) => (a.createdAt > b.createdAt ? a : b))
-    : null
-
+  const newest = recentDay[0] ?? null
   if (newest) {
     const elapsed = now - newest.createdAt
     if (elapsed < limits.cooldownMs) {
@@ -142,30 +149,24 @@ export async function assertCanRetryGeneration(
   const now = Date.now()
   const { isAnonymous, limits } = await loadUser(ctx, userId)
   const hourAgo = now - 60 * 60 * 1000
+  const dayAgo = now - 24 * 60 * 60 * 1000
 
-  const recentHour = await storiesSince(ctx, userId, hourAgo)
-  const generating = recentHour.filter((s) => s.status === "generating")
-
-  if (generating.length >= limits.maxGenerating) {
+  if (await hasGenerating(ctx, userId, dayAgo)) {
     throw new RateLimitError(
       "A story is already generating. Wait for it to finish before retrying.",
       "GENERATING_IN_FLIGHT",
     )
   }
 
-  // Count retries loosely: failed stories touched in the last hour + generating patches
-  // Use stories created in the hour as proxy + failed ones being retried often
-  // Better: count how many times user hit retry — we don't store that, so use
-  // failed→generating churn: number of failed stories in the last hour is weak.
-  // Instead: any create OR retry shares hourly create budget for guests; for retries
-  // use a dedicated counter via failed stories updated recently.
+  const recentHour = await recentStories(
+    ctx,
+    userId,
+    hourAgo,
+    limits.retryHourlyMax + 1,
+  )
 
-  const newest = recentHour.length
-    ? recentHour.reduce((a, b) => (a.createdAt > b.createdAt ? a : b))
-    : null
+  const newest = recentHour[0] ?? null
   if (newest) {
-    const elapsed = now - (newest.generatedAt ?? newest.createdAt)
-    // Prefer createdAt for cooldown on retry of same story — use now vs last story activity
     const since = now - newest.createdAt
     if (since < limits.cooldownMs) {
       const retryAfterMs = limits.cooldownMs - since
@@ -177,9 +178,6 @@ export async function assertCanRetryGeneration(
     }
   }
 
-  // Cap retries: count stories currently failed that were created this hour
-  // plus a soft cap using hourlyMax * 2 as retryHourlyMax on "generating" schedules
-  // Approximate: if user has hit hourly create max, also block aggressive retries
   if (recentHour.length >= limits.retryHourlyMax) {
     throw new RateLimitError(
       `Too many generation attempts this hour (${limits.retryHourlyMax}${isAnonymous ? ", guest limit" : ""}). Try again later.`,
@@ -196,12 +194,10 @@ export async function getRateLimitSnapshot(
   const { isAnonymous, limits } = await loadUser(ctx, userId)
   const dayAgo = now - 24 * 60 * 60 * 1000
   const hourAgo = now - 60 * 60 * 1000
-  const recentDay = await storiesSince(ctx, userId, dayAgo)
+  const recentDay = await recentStories(ctx, userId, dayAgo, limits.dailyMax + 1)
   const recentHour = recentDay.filter((s) => s.createdAt >= hourAgo)
   const generating = recentDay.some((s) => s.status === "generating")
-  const newest = recentDay.length
-    ? recentDay.reduce((a, b) => (a.createdAt > b.createdAt ? a : b))
-    : null
+  const newest = recentDay[0] ?? null
 
   const cooldownRemainingMs = newest
     ? Math.max(0, limits.cooldownMs - (now - newest.createdAt))
@@ -209,6 +205,7 @@ export async function getRateLimitSnapshot(
 
   return {
     isAnonymous,
+    serverNow: now,
     limits: {
       cooldownMs: limits.cooldownMs,
       hourlyMax: limits.hourlyMax,

@@ -12,7 +12,8 @@ import { ThemeGrid } from "./ThemeGrid"
 import { Skull, AlertCircle, Ghost, LogIn, Play } from "lucide-react"
 import { AnimatePresence, motion } from "framer-motion"
 import { formatAuthError } from "@/lib/formatAuthError"
-import { formatRateLimitError } from "@/lib/formatRateLimitError"
+import { classifyError, formatUserError, isNextRedirect } from "@/lib/errors"
+import { useRateLimitClock } from "@/lib/useRateLimitClock"
 import {
   TEST_CASES,
   RECOMMENDED_DEMO_ID,
@@ -38,6 +39,7 @@ export function PromptForm() {
   const { signIn } = useAuthActions()
   const createShell = useMutation(api.stories.createStoryShell)
   const rateLimit = useQuery(api.rateLimit.status, isAuthenticated ? {} : "skip")
+  const rateClock = useRateLimitClock(rateLimit)
   const demoBooted = useRef(false)
 
   const [prompt, setPrompt] = useState("")
@@ -64,10 +66,6 @@ export function PromptForm() {
     setError(null)
   }
 
-  function isNextRedirect(err: unknown) {
-    return String((err as { digest?: string })?.digest ?? "").startsWith("NEXT_REDIRECT")
-  }
-
   async function summonStory(asGuest: boolean, override?: PendingPrompt) {
     const payload = {
       prompt: (override?.prompt ?? prompt).trim(),
@@ -76,6 +74,11 @@ export function PromptForm() {
       length: override?.length ?? length,
     }
     if (!payload.prompt || loading) return
+
+    if (isAuthenticated && !rateClock.canCreate) {
+      setError(rateClock.blockedReason ?? "Rate limit reached. Try again later.")
+      return
+    }
 
     setLoading(true)
     setError(null)
@@ -104,18 +107,11 @@ export function PromptForm() {
       }
     } catch (err) {
       if (isNextRedirect(err)) return
-      const rateLimited = formatRateLimitError(err)
-      if (rateLimited) {
-        setError(rateLimited)
-      } else if (err instanceof Error && err.message.toLowerCase().includes("authentication")) {
+      const classified = classifyError(err)
+      if (classified.kind === "auth") {
         setError(formatAuthError(err, "signIn"))
       } else {
-        const msg = err instanceof Error ? err.message : "Something went wrong"
-        setError(
-          msg === "Failed to fetch"
-            ? "Connection failed — refresh and use http://localhost:3000 (not 3001)."
-            : msg,
-        )
+        setError(formatUserError(err))
       }
       setLoading(false)
       setPhase(null)
@@ -176,11 +172,21 @@ export function PromptForm() {
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
-            className="absolute inset-0 z-20 flex flex-col items-center justify-center gap-3 rounded-sm bg-[var(--card)]/90 backdrop-blur-[2px]"
+            className="absolute inset-0 z-20 flex flex-col items-center justify-center gap-3 rounded-sm border border-[var(--blood)]/25 bg-[var(--card)]/92 backdrop-blur-[3px] px-4"
           >
             <BloodSpinner size="md" label={loadingLabel} />
-            <p className="font-marginalia text-[10px] text-[var(--verdigris)] tracking-wide">
-              keep this page open
+            <div className="w-full max-w-[14rem] h-px overflow-hidden rounded-full bg-[var(--border)]/50">
+              <motion.div
+                className="h-full bg-[var(--blood)]/55"
+                initial={{ width: "8%" }}
+                animate={{ width: phase === "summoning" ? "72%" : "38%" }}
+                transition={{ duration: 1.2, ease: "easeOut" }}
+              />
+            </div>
+            <p className="font-marginalia text-[10px] text-[var(--verdigris)] tracking-wide text-center">
+              {phase === "guest"
+                ? "signing you in as guest…"
+                : "opening the generate chamber…"}
             </p>
           </motion.div>
         )}
@@ -278,21 +284,29 @@ export function PromptForm() {
         </motion.div>
       )}
 
-      {rateLimit && (
-        <p className="font-marginalia text-[10px] text-[var(--verdigris)] tracking-wide text-center sm:text-left">
-          {rateLimit.generating
-            ? "a story is already in the dark — wait for it"
-            : rateLimit.cooldownRemainingMs > 0
-              ? `cooldown ${Math.ceil(rateLimit.cooldownRemainingMs / 1000)}s · ${rateLimit.remaining.hourly}/${rateLimit.limits.hourlyMax} left this hour`
-              : `${rateLimit.remaining.hourly}/${rateLimit.limits.hourlyMax} summons left this hour · ${rateLimit.remaining.daily} today${
-                  rateLimit.isAnonymous ? " · guest" : ""
-                }`}
+      {rateLimit && rateClock.label && (
+        <p
+          className={cn(
+            "font-marginalia text-[10px] tracking-wide text-center sm:text-left",
+            rateClock.canCreate ? "text-[var(--verdigris)]" : "text-[var(--blood)]/80",
+          )}
+        >
+          {rateClock.label}
         </p>
       )}
 
       <motion.button
         type="submit"
-        disabled={!prompt.trim() || loading || Boolean(rateLimit && !rateLimit.canCreate)}
+        disabled={
+          !prompt.trim() ||
+          loading ||
+          Boolean(isAuthenticated && !rateClock.canCreate)
+        }
+        title={
+          isAuthenticated && !rateClock.canCreate
+            ? (rateClock.blockedReason ?? undefined)
+            : undefined
+        }
         whileTap={{ scale: 0.98 }}
         className="btn-primary w-full !py-4 !text-base mt-1"
       >

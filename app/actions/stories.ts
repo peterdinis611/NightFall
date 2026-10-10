@@ -7,9 +7,10 @@ import { redirect } from "next/navigation"
 import { z } from "zod"
 import type { Id } from "@convex/_generated/dataModel"
 import { CONVEX_URL } from "@/lib/convex"
+import { isNextRedirect, unwrapConvexError } from "@/lib/errors"
 
 const createSchema = z.object({
-  prompt: z.string().trim().min(1).max(400),
+  prompt: z.string().trim().min(1, "Prompt is required").max(400, "Prompt must be 400 characters or fewer"),
   theme: z.string().trim().max(200).optional().default(""),
   tone: z.enum(["atmospheric", "psychological", "jumpscare", "graphic"]),
   length: z.enum(["short", "medium", "long"]),
@@ -17,17 +18,31 @@ const createSchema = z.object({
 
 export type CreateStoryInput = z.infer<typeof createSchema>
 
-function unwrapConvexError(err: unknown): string {
-  const raw = err instanceof Error ? err.message : String(err)
-  if (raw.includes("[CONVEX")) {
-    return raw.match(/Uncaught Error: ([^\n]+)/)?.[1] ?? raw
+function requireConvexUrl() {
+  if (!CONVEX_URL) {
+    throw new Error("Missing NEXT_PUBLIC_CONVEX_URL — set it in .env.local")
   }
-  return raw
+  return CONVEX_URL
+}
+
+function mapActionError(err: unknown): never {
+  if (isNextRedirect(err)) throw err
+  if (err instanceof z.ZodError) {
+    throw new Error(err.errors[0]?.message ?? "Invalid input")
+  }
+  throw new Error(unwrapConvexError(err))
 }
 
 /** Orchestration only — generation stays on Convex. */
 export async function createStoryAction(input: CreateStoryInput) {
-  const parsed = createSchema.parse(input)
+  const parsed = (() => {
+    try {
+      return createSchema.parse(input)
+    } catch (err) {
+      return mapActionError(err)
+    }
+  })()
+
   const token = await convexAuthNextjsToken()
   if (!token) {
     throw new Error("Authentication required")
@@ -42,24 +57,19 @@ export async function createStoryAction(input: CreateStoryInput) {
         tone: parsed.tone,
         length: parsed.length,
       },
-      { token, url: CONVEX_URL },
+      { token, url: requireConvexUrl() },
     )
     redirect(`/generate?storyId=${result.storyId}&slug=${result.slug}`)
   } catch (err) {
-    // redirect() throws a special Next error — rethrow it
-    if (
-      typeof err === "object" &&
-      err !== null &&
-      "digest" in err &&
-      String((err as { digest?: string }).digest).startsWith("NEXT_REDIRECT")
-    ) {
-      throw err
-    }
-    throw new Error(unwrapConvexError(err))
+    mapActionError(err)
   }
 }
 
 export async function retryStoryAction(storyId: string) {
+  if (!storyId?.trim()) {
+    throw new Error("Missing story id")
+  }
+
   const token = await convexAuthNextjsToken()
   if (!token) {
     throw new Error("Authentication required")
@@ -69,18 +79,10 @@ export async function retryStoryAction(storyId: string) {
     const result = await fetchMutation(
       api.stories.retryGeneration,
       { storyId: storyId as Id<"stories"> },
-      { token, url: CONVEX_URL },
+      { token, url: requireConvexUrl() },
     )
     redirect(`/generate?storyId=${result.storyId}&slug=${result.slug}`)
   } catch (err) {
-    if (
-      typeof err === "object" &&
-      err !== null &&
-      "digest" in err &&
-      String((err as { digest?: string }).digest).startsWith("NEXT_REDIRECT")
-    ) {
-      throw err
-    }
-    throw new Error(unwrapConvexError(err))
+    mapActionError(err)
   }
 }

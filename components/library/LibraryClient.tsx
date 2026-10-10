@@ -10,6 +10,8 @@ import { Trash2, Globe, Lock, BookOpen, Plus, ArrowRight, RefreshCw } from "luci
 import { useState } from "react"
 import type { Id } from "@convex/_generated/dataModel"
 import { retryStoryAction } from "@/app/actions/stories"
+import { formatUserError, isNextRedirect } from "@/lib/errors"
+import { sanitizeGenerationError } from "@/lib/sanitizeError"
 
 export function LibraryClient() {
   const { isAuthenticated, isLoading: authLoading } = useConvexAuth()
@@ -48,11 +50,8 @@ export function LibraryClient() {
     try {
       await retryStoryAction(storyId)
     } catch (err) {
-      const raw = err instanceof Error ? err.message : "Retry failed"
-      if (String((err as { digest?: string }).digest ?? "").startsWith("NEXT_REDIRECT")) {
-        return
-      }
-      window.alert(raw)
+      if (isNextRedirect(err)) return
+      window.alert(formatUserError(err))
     } finally {
       setRetrying(null)
     }
@@ -168,9 +167,9 @@ export function LibraryClient() {
 
                   <p className="text-xs text-muted mt-0.5 truncate">{story.prompt}</p>
 
-                  {story.status === "failed" && story.errorMessage && (
+                  {story.status === "failed" && (
                     <p className="text-[11px] text-blood-400/80 mt-1.5 line-clamp-2">
-                      {story.errorMessage}
+                      {sanitizeGenerationError(story.errorMessage)}
                     </p>
                   )}
 
