@@ -79,33 +79,34 @@ export function PromptForm() {
     }
   }
 
-  // After guest hard-reload (or return from /auth) — restore draft and submit once
+  // Pending draft after guest reload: restore fields, wait for auth, then summon
   useEffect(() => {
-    if (authLoading || !isAuthenticated || autoSubmitRef.current) return
     const pending = readPendingPrompt()
     if (!pending?.prompt?.trim()) return
 
-    autoSubmitRef.current = true
     setPrompt(pending.prompt)
     setTheme(pending.theme)
     setTone(pending.tone)
     setLength(pending.length)
-    void startGeneration(pending)
-  }, [authLoading, isAuthenticated])
 
-  // Restore draft into the form even before auth finishes (so reload feels continuous)
-  useEffect(() => {
-    const pending = readPendingPrompt()
-    if (!pending?.prompt?.trim()) return
-    setPrompt(pending.prompt)
-    setTheme(pending.theme)
-    setTone(pending.tone)
-    setLength(pending.length)
-    if (!isAuthenticated) {
+    if (authLoading) {
       setLoading(true)
       setPhase("guest")
+      return
     }
-  }, [])
+
+    if (isAuthenticated) {
+      if (autoSubmitRef.current) return
+      autoSubmitRef.current = true
+      void startGeneration(pending)
+      return
+    }
+
+    // Auth resolved unsigned — guest tokens did not load
+    setLoading(false)
+    setPhase(null)
+    setError("Guest session did not stick. Click Generate again.")
+  }, [authLoading, isAuthenticated])
 
   async function continueAsGuest(values: PendingPrompt) {
     if (!values.prompt.trim()) return

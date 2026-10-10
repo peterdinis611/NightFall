@@ -35,6 +35,7 @@ nightfall/
 │   ├── stories.ts            # Queries, mutations, scheduler kickoff
 │   ├── actions.ts            # Internal OpenAI generation action
 │   ├── auth.ts
+│   ├── auth.config.ts        # JWT provider (required for Convex Auth)
 │   └── http.ts
 ├── public/audio/             # Scene ambient WAVs
 ├── scripts/generate-audio.mjs
@@ -65,15 +66,17 @@ Copy `.env.example` → `.env.local`:
 VITE_CONVEX_URL=https://your-project.convex.cloud
 ```
 
-Set **Convex dashboard → Settings → Environment Variables** (backend):
+Set **Convex dashboard → Settings → Environment Variables** (backend) — not only `.env.local`:
 
 | Variable | Required | Notes |
 |----------|----------|-------|
-| `OPENAI_API_KEY` | **Yes** | Story generation |
+| `OPENAI_API_KEY` | **Yes** | Must be on the Convex deployment (`npx convex env set OPENAI_API_KEY …`). A key in `.env.local` alone will not generate stories. |
 | `SITE_URL` | **Yes** | e.g. `http://localhost:3000` |
 | `JWT_PRIVATE_KEY` / `JWKS` | **Yes** | Run `npm run auth:setup` |
 | `AUTH_GITHUB_ID` / `AUTH_GITHUB_SECRET` | Optional | GitHub OAuth |
 | `AUTH_GOOGLE_ID` / `AUTH_GOOGLE_SECRET` | Optional | Google OAuth |
+
+`convex/auth.config.ts` must exist so Convex can validate auth JWTs.
 
 ```bash
 npm run auth:setup   # writes JWT keys + SITE_URL to Convex
