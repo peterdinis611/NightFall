@@ -1,6 +1,7 @@
 "use client"
 
 import Link from "next/link"
+import { usePathname } from "next/navigation"
 import { useConvexAuth, useQuery } from "convex/react"
 import { useAuthActions } from "@convex-dev/auth/react"
 import * as DropdownMenu from "@radix-ui/react-dropdown-menu"
@@ -23,6 +24,8 @@ import { useTheme } from "@/lib/theme"
 import { cn } from "@/lib/utils"
 
 export function AppNav() {
+  const pathname = usePathname() ?? "/"
+  const reading = pathname.startsWith("/story/")
   const { isAuthenticated, isLoading } = useConvexAuth()
   const { theme } = useTheme()
   const { signOut } = useAuthActions()
@@ -37,10 +40,22 @@ export function AppNav() {
   const profileInitial = (profileLabel[0] ?? user?.email?.[0] ?? "?").toUpperCase()
 
   return (
-    <header className="fixed top-0 left-0 right-0 z-[100] nav-glass">
-      <div className="absolute bottom-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-[var(--primary)] to-transparent opacity-25" />
+    <header
+      className={cn(
+        "fixed top-0 left-0 right-0 z-[100]",
+        reading ? "bg-transparent" : "nav-glass",
+      )}
+    >
+      {!reading && (
+        <div className="absolute bottom-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-[var(--primary)] to-transparent opacity-25" />
+      )}
 
-      <nav className="mx-auto flex max-w-5xl items-center justify-between px-5 py-3.5">
+      <nav
+        className={cn(
+          "mx-auto flex max-w-5xl items-center justify-between px-5",
+          reading ? "py-3" : "py-3.5",
+        )}
+      >
         <Link
           href="/"
           className="group flex items-center gap-3 font-serif font-semibold tracking-wide transition-colors"
@@ -49,13 +64,17 @@ export function AppNav() {
             className="relative flex size-9 items-center justify-center rounded-sm border bg-[var(--surface-bg)]"
             style={{ borderColor: "var(--border)" }}
             whileHover={{ scale: 1.04 }}
-            animate={{
-              boxShadow: [
-                "0 0 0 0 transparent",
-                "0 0 0 4px color-mix(in srgb, var(--verdigris) 18%, transparent)",
-                "0 0 0 0 transparent",
-              ],
-            }}
+            animate={
+              reading
+                ? undefined
+                : {
+                    boxShadow: [
+                      "0 0 0 0 transparent",
+                      "0 0 0 4px color-mix(in srgb, var(--verdigris) 18%, transparent)",
+                      "0 0 0 0 transparent",
+                    ],
+                  }
+            }
             transition={{ duration: 3.5, repeat: Infinity }}
           >
             {theme === "light" ? (
@@ -64,11 +83,17 @@ export function AppNav() {
               <Ghost className="size-4" style={{ color: "var(--verdigris)" }} />
             )}
           </motion.span>
-          <AppBrand split className="text-fg group-hover:opacity-80 transition-opacity text-lg" />
+          <AppBrand
+            split
+            className={cn(
+              "text-fg group-hover:opacity-80 transition-opacity",
+              reading ? "text-base opacity-80" : "text-lg",
+            )}
+          />
         </Link>
 
         <div className="flex items-center gap-2">
-          <AmbientSoundToggle />
+          {!reading && <AmbientSoundToggle />}
           <ThemeToggle />
 
           {isLoading && !isAuthenticated ? (

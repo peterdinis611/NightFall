@@ -4,6 +4,7 @@ import {
   createContext,
   useCallback,
   useContext,
+  useEffect,
   useState,
   type ReactNode,
 } from "react"
@@ -20,33 +21,47 @@ type AmbientSoundContextValue = {
 
 const AmbientSoundContext = createContext<AmbientSoundContextValue | null>(null)
 
-function getInitialEnabled(): boolean {
-  if (typeof window === "undefined") return false
-  return localStorage.getItem(STORAGE_KEY) === "true"
-}
-
 function isStoryRoute(pathname: string) {
   return pathname.startsWith("/story/")
 }
 
 export function AmbientSoundProvider({ children }: { children: ReactNode }) {
   const pathname = usePathname() ?? "/"
-  const [enabled, setEnabledState] = useState(getInitialEnabled)
+  // Always false for SSR + first client paint
+  const [enabled, setEnabledState] = useState(false)
+  const [ready, setReady] = useState(false)
+
+  useEffect(() => {
+    try {
+      setEnabledState(localStorage.getItem(STORAGE_KEY) === "true")
+    } catch {
+      setEnabledState(false)
+    }
+    setReady(true)
+  }, [])
 
   const setEnabled = useCallback((next: boolean) => {
     setEnabledState(next)
-    localStorage.setItem(STORAGE_KEY, String(next))
+    try {
+      localStorage.setItem(STORAGE_KEY, String(next))
+    } catch {
+      /* ignore */
+    }
   }, [])
 
   const toggle = useCallback(() => {
     setEnabledState((prev) => {
       const next = !prev
-      localStorage.setItem(STORAGE_KEY, String(next))
+      try {
+        localStorage.setItem(STORAGE_KEY, String(next))
+      } catch {
+        /* ignore */
+      }
       return next
     })
   }, [])
 
-  const playing = enabled && !isStoryRoute(pathname)
+  const playing = ready && enabled && !isStoryRoute(pathname)
 
   return (
     <AmbientSoundContext.Provider value={{ enabled, toggle, setEnabled }}>

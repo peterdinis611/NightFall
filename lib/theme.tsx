@@ -26,11 +26,12 @@ export function getAppName(theme: Theme): string {
   return theme === "light" ? "lightFall" : "Nightfall"
 }
 
-function getInitialTheme(): Theme {
-  if (typeof window === "undefined") return "dark"
-  const stored = localStorage.getItem(STORAGE_KEY)
-  if (stored === "light") return "light"
-  return "dark"
+function readStoredTheme(): Theme {
+  try {
+    return localStorage.getItem(STORAGE_KEY) === "light" ? "light" : "dark"
+  } catch {
+    return "dark"
+  }
 }
 
 function applyTheme(theme: Theme) {
@@ -45,18 +46,32 @@ function applyTheme(theme: Theme) {
 }
 
 export function ThemeProvider({ children }: { children: ReactNode }) {
-  const [theme, setThemeState] = useState<Theme>(getInitialTheme)
+  // Always "dark" for SSR + first client paint so markup matches hydration
+  const [theme, setThemeState] = useState<Theme>("dark")
+  const [ready, setReady] = useState(false)
 
   useEffect(() => {
+    const next = readStoredTheme()
+    setThemeState(next)
+    applyTheme(next)
+    setReady(true)
+  }, [])
+
+  useEffect(() => {
+    if (!ready) return
     applyTheme(theme)
-    localStorage.setItem(STORAGE_KEY, theme)
-  }, [theme])
+    try {
+      localStorage.setItem(STORAGE_KEY, theme)
+    } catch {
+      /* ignore */
+    }
+  }, [theme, ready])
 
   const setTheme = useCallback((next: Theme) => setThemeState(next), [])
 
   const toggleTheme = useCallback(
     () => setThemeState((t) => (t === "dark" ? "light" : "dark")),
-    []
+    [],
   )
 
   return (

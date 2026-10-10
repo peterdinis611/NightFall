@@ -94,6 +94,7 @@ function DescentBackground() {
 // ── Static ────────────────────────────────────────────────────────────────────
 function StaticBackground() {
   const [opacity, setOpacity] = useState(0.05)
+  const [noiseSize] = useState(96)
   const frameRef = useRef(0)
 
   useAnimationFrame(() => {
@@ -107,7 +108,7 @@ function StaticBackground() {
     <div className="absolute inset-0 bg-[#0a0a10]">
       <div
         className="absolute inset-0 bg-noise"
-        style={{ opacity, backgroundSize: `${64 + Math.floor(Math.random() * 64)}px` }}
+        style={{ opacity, backgroundSize: `${noiseSize}px` }}
       />
       <div className="absolute inset-0 bg-gradient-to-b from-[#050508]/60 via-transparent to-[#050508]/80" />
     </div>

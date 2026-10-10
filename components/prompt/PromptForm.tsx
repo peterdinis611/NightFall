@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect, useRef } from "react"
 import { useRouter } from "next/navigation"
 import { useQuery, useMutation, useConvexAuth } from "convex/react"
 import { useAuthActions } from "@convex-dev/auth/react"
@@ -9,11 +9,16 @@ import { cn } from "@/lib/utils"
 import { ToneSelector, type Tone } from "./ToneSelector"
 import { LengthSelector, type Length } from "./LengthSelector"
 import { ThemeGrid } from "./ThemeGrid"
-import { Skull, AlertCircle, Ghost, LogIn } from "lucide-react"
+import { Skull, AlertCircle, Ghost, LogIn, Play } from "lucide-react"
 import { AnimatePresence, motion } from "framer-motion"
 import { formatAuthError } from "@/lib/formatAuthError"
 import { formatRateLimitError } from "@/lib/formatRateLimitError"
-import { TEST_CASES } from "@/lib/testCases"
+import {
+  TEST_CASES,
+  RECOMMENDED_DEMO_ID,
+  getTestCase,
+} from "@/lib/testCases"
+import type { PendingPrompt } from "@/lib/pendingPrompt"
 import { BloodSpinner } from "@/components/shared/BloodSpinner"
 import { createStoryAction } from "@/app/actions/stories"
 
@@ -33,6 +38,7 @@ export function PromptForm() {
   const { signIn } = useAuthActions()
   const createShell = useMutation(api.stories.createStoryShell)
   const rateLimit = useQuery(api.rateLimit.status, isAuthenticated ? {} : "skip")
+  const demoBooted = useRef(false)
 
   const [prompt, setPrompt] = useState("")
   const [theme, setTheme] = useState("")
@@ -42,40 +48,60 @@ export function PromptForm() {
   const [phase, setPhase] = useState<"guest" | "summoning" | null>(null)
   const [error, setError] = useState<string | null>(null)
 
-  const [placeholder] = useState(
-    () => PLACEHOLDER_PROMPTS[Math.floor(Math.random() * PLACEHOLDER_PROMPTS.length)],
-  )
+  // Stable SSR default; pick a random prompt only after mount
+  const [placeholder, setPlaceholder] = useState(PLACEHOLDER_PROMPTS[0])
+  useEffect(() => {
+    setPlaceholder(
+      PLACEHOLDER_PROMPTS[Math.floor(Math.random() * PLACEHOLDER_PROMPTS.length)],
+    )
+  }, [])
+
+  function applyCase(tc: PendingPrompt & { id?: string }) {
+    setPrompt(tc.prompt)
+    setTheme(tc.theme)
+    setTone(tc.tone)
+    setLength(tc.length)
+    setError(null)
+  }
 
   function isNextRedirect(err: unknown) {
     return String((err as { digest?: string })?.digest ?? "").startsWith("NEXT_REDIRECT")
   }
 
-  async function summonStory(asGuest: boolean) {
-    if (!prompt.trim() || loading) return
+  async function summonStory(asGuest: boolean, override?: PendingPrompt) {
+    const payload = {
+      prompt: (override?.prompt ?? prompt).trim(),
+      theme: (override?.theme ?? theme) || (override?.prompt ?? prompt).trim(),
+      tone: override?.tone ?? tone,
+      length: override?.length ?? length,
+    }
+    if (!payload.prompt || loading) return
 
     setLoading(true)
     setError(null)
 
-    const payload = {
-      prompt: prompt.trim(),
-      theme: theme || prompt.trim(),
-      tone,
-      length,
-    }
-
     try {
-      if (asGuest || (!authLoading && !isAuthenticated)) {
+      // Prefer Convex client mutation — Server Actions often "Failed to fetch"
+      // when cookies/middleware race or a stale tab hits a dead port.
+      const needGuest = asGuest || (!authLoading && !isAuthenticated)
+      if (needGuest) {
         setPhase("guest")
         await signIn("anonymous")
-        // Cookie may lag — use client mutation then navigate
-        setPhase("summoning")
-        const { storyId, slug } = await createShell(payload)
-        router.push(`/generate?storyId=${storyId}&slug=${slug}`)
-        return
       }
 
       setPhase("summoning")
-      await createStoryAction(payload)
+      try {
+        const { storyId, slug } = await createShell(payload)
+        router.push(`/generate?storyId=${storyId}&slug=${slug}`)
+        return
+      } catch (clientErr) {
+        // Fallback: Server Action (cookie token) if client mutation fails
+        if (!needGuest) {
+          await createStoryAction(payload)
+          return
+        }
+        throw clientErr
+      }
     } catch (err) {
       if (isNextRedirect(err)) return
       const rateLimited = formatRateLimitError(err)
@@ -84,12 +110,41 @@ export function PromptForm() {
       } else if (err instanceof Error && err.message.toLowerCase().includes("authentication")) {
         setError(formatAuthError(err, "signIn"))
       } else {
-        setError(err instanceof Error ? err.message : "Something went wrong")
+        const msg = err instanceof Error ? err.message : "Something went wrong"
+        setError(
+          msg === "Failed to fetch"
+            ? "Connection failed — refresh and use http://localhost:3000 (not 3001)."
+            : msg,
+        )
       }
       setLoading(false)
       setPhase(null)
     }
   }
+
+  async function runDemo(id: string) {
+    const tc = getTestCase(id)
+    if (!tc || authLoading) return
+    applyCase(tc)
+    await summonStory(!isAuthenticated, tc)
+  }
+
+  // Deep link: /?demo=smoke-short  or  /?demo=smoke-short&run=1
+  useEffect(() => {
+    if (!showTestCases || demoBooted.current || authLoading) return
+    const params = new URLSearchParams(window.location.search)
+    const demoId = params.get("demo")
+    if (!demoId) return
+    const tc = getTestCase(demoId)
+    if (!tc) return
+    demoBooted.current = true
+    applyCase(tc)
+    if (params.get("run") === "1") {
+      void summonStory(!isAuthenticated, tc)
+    }
+    router.replace("/#generate", { scroll: false })
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- boot once from URL
+  }, [authLoading, isAuthenticated])
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
@@ -150,30 +205,50 @@ export function PromptForm() {
       </div>
 
       {showTestCases && (
-        <div className="rounded-sm border border-[var(--border)] bg-[var(--surface-bg)] px-3 py-3">
-          <p className="font-marginalia text-[11px] text-[var(--verdigris)] mb-2">
-            test pages · dev only
-          </p>
+        <div className="rounded-sm border border-[var(--verdigris)]/35 bg-[var(--surface-bg)] px-3 py-3 space-y-2.5">
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <p className="font-marginalia text-[11px] text-[var(--verdigris)]">
+              demo · fill klikom · ▶ spustí generovanie
+            </p>
+            <button
+              type="button"
+              disabled={loading || authLoading}
+              title="Guest + short atmospheric — najrýchlejší smoke test"
+              onClick={() => void runDemo(RECOMMENDED_DEMO_ID)}
+              className="inline-flex items-center gap-1.5 rounded-sm border border-[var(--blood)]/50 bg-[var(--blood)]/15 px-2.5 py-1 text-[11px] font-mono uppercase tracking-wide text-[var(--blood)] hover:bg-[var(--blood)]/25 disabled:opacity-40"
+            >
+              <Play className="size-3" />
+              Run smoke demo
+            </button>
+          </div>
           <div className="flex flex-wrap gap-1.5">
             {TEST_CASES.map((tc) => (
               <button
                 key={tc.id}
                 type="button"
-                title={tc.note}
+                title={`${tc.note} · Shift+klik = fill + summon`}
                 disabled={loading}
-                onClick={() => {
-                  setPrompt(tc.prompt)
-                  setTheme(tc.theme)
-                  setTone(tc.tone)
-                  setLength(tc.length)
-                  setError(null)
+                onClick={(e) => {
+                  if (e.shiftKey) {
+                    void runDemo(tc.id)
+                    return
+                  }
+                  applyCase(tc)
                 }}
-                className="chip !text-[11px] !py-1 disabled:opacity-40"
+                onDoubleClick={() => void runDemo(tc.id)}
+                className={cn(
+                  "chip !text-[11px] !py-1 disabled:opacity-40",
+                  tc.recommended && "chip-active",
+                )}
               >
                 {tc.label}
               </button>
             ))}
           </div>
+          <p className="text-[10px] text-muted/80 leading-relaxed">
+            Tip: <span className="text-fg/70">Run smoke demo</span> alebo double-click / Shift+klik na chip.
+            URL: <code className="text-[var(--verdigris)]">/?demo=smoke-short&amp;run=1</code>
+          </p>
         </div>
       )}
 

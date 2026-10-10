@@ -6,6 +6,7 @@ import { api } from "@convex/_generated/api"
 import { redirect } from "next/navigation"
 import { z } from "zod"
 import type { Id } from "@convex/_generated/dataModel"
+import { CONVEX_URL } from "@/lib/convex"
 
 const createSchema = z.object({
   prompt: z.string().trim().min(1).max(400),
@@ -41,7 +42,7 @@ export async function createStoryAction(input: CreateStoryInput) {
         tone: parsed.tone,
         length: parsed.length,
       },
-      { token },
+      { token, url: CONVEX_URL },
     )
     redirect(`/generate?storyId=${result.storyId}&slug=${result.slug}`)
   } catch (err) {
@@ -68,7 +69,7 @@ export async function retryStoryAction(storyId: string) {
     const result = await fetchMutation(
       api.stories.retryGeneration,
       { storyId: storyId as Id<"stories"> },
-      { token },
+      { token, url: CONVEX_URL },
     )
     redirect(`/generate?storyId=${result.storyId}&slug=${result.slug}`)
   } catch (err) {
