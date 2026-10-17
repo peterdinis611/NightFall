@@ -9,7 +9,7 @@ import { cn } from "@/lib/utils"
 import { ToneSelector, type Tone } from "./ToneSelector"
 import { LengthSelector, type Length } from "./LengthSelector"
 import { ThemeGrid } from "./ThemeGrid"
-import { Skull, AlertCircle, Ghost, LogIn, Play } from "lucide-react"
+import { AlertCircle, Ghost, LogIn, Play } from "lucide-react"
 import { AnimatePresence, motion } from "framer-motion"
 import { formatAuthError } from "@/lib/formatAuthError"
 import { classifyError, formatUserError, isNextRedirect } from "@/lib/errors"
@@ -315,11 +315,10 @@ export function PromptForm() {
             <BloodSpinner size="sm" />
             {loadingLabel}
           </>
+        ) : needsAuth ? (
+          "Write as guest"
         ) : (
-          <>
-            <Skull className="size-5" />
-            {needsAuth ? "Generate as guest" : "Generate Story"}
-          </>
+          "Write it"
         )}
       </motion.button>
 

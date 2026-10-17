@@ -31,12 +31,9 @@ function TickerRow({
         {doubled.map((quote, i) => (
           <span
             key={i}
-            className="inline-flex items-baseline gap-4 font-serif text-[1.05rem] sm:text-lg italic text-muted"
+            className="font-serif text-[1.05rem] sm:text-lg italic text-muted"
           >
-            <span className="font-mono text-[10px] not-italic tracking-[0.2em] text-[var(--verdigris)] shrink-0">
-              {String((i % quotes.length) + 1).padStart(2, "0")}
-            </span>
-            <span>&ldquo;{quote}&rdquo;</span>
+            &ldquo;{quote}&rdquo;
           </span>
         ))}
       </div>
@@ -53,8 +50,8 @@ export function LandingMarquee() {
       <div className="relative py-8 sm:py-11">
         <div className="flex items-center justify-center gap-5 mb-6 px-4">
           <div className="h-px flex-1 max-w-[80px] bg-[var(--border-hover)]" />
-          <p className="font-marginalia text-[11px] text-[var(--verdigris)] tracking-wide">
-            whispers pressed into the paper
+          <p className="font-sans text-xs text-muted tracking-wide">
+            Things people wrote and then reread
           </p>
           <div className="h-px flex-1 max-w-[80px] bg-[var(--border-hover)]" />
         </div>
@@ -88,19 +85,14 @@ export function LandingCTA() {
       whileInView={{ opacity: 1, y: 0 }}
       viewport={{ once: true, margin: "-60px" }}
       transition={{ duration: 0.6, ease: [0.22, 1, 0.36, 1] }}
-      className="mb-12 relative"
+      className="mb-12 relative text-left sm:text-center"
     >
-      <p className="font-marginalia text-[11px] text-[var(--verdigris)] mb-4 sm:text-center">
-        fol. iv · the threshold
-      </p>
-      <h2 className="font-serif text-4xl sm:text-5xl lg:text-[3.75rem] font-normal text-fg leading-[1.05] tracking-tight sm:text-center">
-        Speak your{" "}
-        <span className="text-gradient italic">fear</span>
+      <h2 className="font-serif text-4xl sm:text-5xl lg:text-[3.5rem] font-normal text-fg leading-[1.08] tracking-tight">
+        Speak your fear into the page
       </h2>
-      <p className="mt-4 text-muted text-base max-w-md sm:mx-auto leading-relaxed font-sans italic sm:text-center">
-        One prompt. A story that doesn&apos;t want to let you go.
+      <p className="mt-4 text-muted text-base max-w-md sm:mx-auto leading-relaxed font-sans">
+        One prompt. A story that does not want to let you go.
       </p>
-      <div className="manuscript-rule mt-8 max-w-xs sm:mx-auto" />
     </motion.div>
   )
 }

@@ -7,8 +7,8 @@ import { ContentWarning } from "@/components/shared/ContentWarning"
 import "./globals.css"
 
 export const metadata: Metadata = {
-  title: "Nightfall — AI Horror Story Generator",
-  description: "Summon cinematic horror stories with AI.",
+  title: "Nightfall",
+  description: "Name what waits in the dark. Nightfall writes it back.",
 }
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
@@ -19,7 +19,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
           <link rel="preconnect" href="https://fonts.googleapis.com" />
           <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
           <link
-            href="https://fonts.googleapis.com/css2?family=Crimson+Pro:ital,wght@0,400;0,500;0,600;1,400;1,500&family=IM+Fell+English:ital@0;1&family=IBM+Plex+Mono:wght@400;500&family=Special+Elite&display=swap"
+            href="https://fonts.googleapis.com/css2?family=EB+Garamond:ital,wght@0,500;0,600;1,500&family=Newsreader:ital,opsz,wght@0,6..72,400;0,6..72,500;1,6..72,400&family=IBM+Plex+Mono:wght@400;500&display=swap"
             rel="stylesheet"
           />
           <script

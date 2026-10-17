@@ -10,10 +10,10 @@ export default {
   theme: {
     extend: {
       fontFamily: {
-        serif: ["'IM Fell English'", "'Times New Roman'", "serif"],
-        sans:  ["'Crimson Pro'", "'Georgia'", "serif"],
+        serif: ["'EB Garamond'", "'Times New Roman'", "serif"],
+        sans:  ["'Newsreader'", "'Georgia'", "serif"],
         mono:  ["'IBM Plex Mono'", "monospace"],
-        marginalia: ["'Special Elite'", "'Courier New'", "monospace"],
+        marginalia: ["'IBM Plex Mono'", "monospace"],
       },
       colors: {
         night: {
