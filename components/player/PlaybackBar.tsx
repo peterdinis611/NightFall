@@ -11,6 +11,7 @@ import {
   VolumeX,
   Share2,
   X,
+  AudioLines,
 } from "lucide-react"
 
 interface Props {
@@ -19,11 +20,14 @@ interface Props {
   isRevealing: boolean
   autoPlay: boolean
   audioEnabled: boolean
+  narrationEnabled?: boolean
+  narrationAvailable?: boolean
   onPrev: () => void
   onNext: () => void
   onJump?: (index: number) => void
   onToggleAuto: () => void
   onToggleAudio: () => void
+  onToggleNarration?: () => void
   onShare: () => void
   onExit: () => void
 }
@@ -34,11 +38,14 @@ export function PlaybackBar({
   isRevealing,
   autoPlay,
   audioEnabled,
+  narrationEnabled = false,
+  narrationAvailable = false,
   onPrev,
   onNext,
   onJump,
   onToggleAuto,
   onToggleAudio,
+  onToggleNarration,
   onShare,
   onExit,
 }: Props) {
@@ -170,6 +177,15 @@ export function PlaybackBar({
                   <VolumeX className="size-4 opacity-60" />
                 )}
               </BarButton>
+              {narrationAvailable && onToggleNarration && (
+                <BarButton
+                  onClick={onToggleNarration}
+                  label={narrationEnabled ? "Stop whisper narration" : "Whisper narration"}
+                  active={narrationEnabled}
+                >
+                  <AudioLines className={cn("size-4", narrationEnabled && "text-[var(--blood)]")} />
+                </BarButton>
+              )}
               <BarButton onClick={onShare} label="Copy story link">
                 <Share2 className="size-4" />
               </BarButton>

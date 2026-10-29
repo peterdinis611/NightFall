@@ -56,12 +56,20 @@ export function HomePage() {
           <p className="font-serif text-sm text-muted">
             <AppBrand />
           </p>
-          <Link
-            href="/library"
-            className="text-xs text-muted hover:text-fg transition-colors underline-offset-4 hover:underline"
-          >
-            Leave to library
-          </Link>
+          <div className="flex items-center gap-4 text-xs">
+            <Link
+              href="/explore"
+              className="text-muted hover:text-fg transition-colors underline-offset-4 hover:underline"
+            >
+              Explore
+            </Link>
+            <Link
+              href="/library"
+              className="text-muted hover:text-fg transition-colors underline-offset-4 hover:underline"
+            >
+              Library
+            </Link>
+          </div>
         </div>
       </footer>
     </div>

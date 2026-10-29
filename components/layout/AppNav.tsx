@@ -10,6 +10,7 @@ import { BookOpen, LogIn, LogOut, ChevronDown, User } from "lucide-react"
 import { ThemeToggle } from "@/components/shared/ThemeToggle"
 import { AmbientSoundToggle } from "@/components/shared/AmbientSoundToggle"
 import { AppBrand } from "@/components/shared/AppBrand"
+import { useAccountClaim } from "@/lib/useAccountClaim"
 import { cn } from "@/lib/utils"
 
 export function AppNav() {
@@ -40,15 +41,30 @@ export function AppNav() {
           reading ? "py-3" : "py-3.5",
         )}
       >
-        <Link
-          href="/"
-          className={cn(
-            "font-serif tracking-tight text-fg hover:opacity-70 transition-opacity",
-            reading ? "text-base opacity-75" : "text-xl",
+        <div className="flex items-center gap-5 min-w-0">
+          <Link
+            href="/"
+            className={cn(
+              "font-serif tracking-tight text-fg hover:opacity-70 transition-opacity shrink-0",
+              reading ? "text-base opacity-75" : "text-xl",
+            )}
+          >
+            <AppBrand />
+          </Link>
+          {!reading && (
+            <Link
+              href="/explore"
+              className={cn(
+                "hidden sm:inline text-xs tracking-wide transition-colors",
+                pathname.startsWith("/explore")
+                  ? "text-fg"
+                  : "text-muted hover:text-fg",
+              )}
+            >
+              Explore
+            </Link>
           )}
-        >
-          <AppBrand />
-        </Link>
+        </div>
 
         <div className="flex items-center gap-2">
           {!reading && <AmbientSoundToggle />}
@@ -95,6 +111,8 @@ function ProfileDropdown({
   loading?: boolean
   onSignOut: () => void
 }) {
+  const { prepareClaim } = useAccountClaim()
+
   return (
     <DropdownMenu.Root>
       <DropdownMenu.Trigger asChild>
@@ -151,6 +169,15 @@ function ProfileDropdown({
 
           <DropdownMenu.Item asChild>
             <Link
+              href="/explore"
+              className="flex w-full items-center gap-2 px-3 py-2 text-sm text-fg outline-none cursor-pointer hover:bg-[var(--card-hover)]"
+            >
+              Explore
+            </Link>
+          </DropdownMenu.Item>
+
+          <DropdownMenu.Item asChild>
+            <Link
               href="/#generate"
               className="flex w-full items-center gap-2 px-3 py-2 text-sm text-fg outline-none cursor-pointer hover:bg-[var(--card-hover)]"
             >
@@ -161,7 +188,8 @@ function ProfileDropdown({
           {isAnonymous && (
             <DropdownMenu.Item asChild>
               <Link
-                href="/auth?redirect=/"
+                href="/auth?redirect=/library"
+                onClick={() => void prepareClaim()}
                 className="flex w-full items-center gap-2 px-3 py-2 text-sm text-fg outline-none cursor-pointer hover:bg-[var(--card-hover)]"
               >
                 <User className="size-4 text-muted" />

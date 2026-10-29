@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState, useEffect, useRef } from "react"
 import { useRouter } from "next/navigation"
 import { useAuthActions } from "@convex-dev/auth/react"
 import { useConvexAuth, useQuery } from "convex/react"
@@ -8,6 +8,7 @@ import { api } from "@convex/_generated/api"
 import { motion, AnimatePresence } from "framer-motion"
 import { getAuthRedirectPath } from "@/lib/authRedirect"
 import { formatAuthError } from "@/lib/formatAuthError"
+import { useAccountClaim } from "@/lib/useAccountClaim"
 import { cn } from "@/lib/utils"
 import {
   Mail,
@@ -34,7 +35,10 @@ export function AuthForm({ redirectTo = "/" }: AuthFormProps) {
   const { signIn } = useAuthActions()
   const { isAuthenticated, isLoading: authLoading } = useConvexAuth()
   const user = useQuery(api.users.current, isAuthenticated ? {} : "skip")
+  const { prepareClaim, redeemIfNeeded } = useAccountClaim()
   const destination = getAuthRedirectPath(redirectTo)
+  const claimPrepared = useRef(false)
+  const redeemed = useRef(false)
 
   const [mode, setMode] = useState<AuthMode>("signIn")
   const [email, setEmail] = useState("")
@@ -43,11 +47,26 @@ export function AuthForm({ redirectTo = "/" }: AuthFormProps) {
   const [loading, setLoading] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
 
+  // Guest visiting /auth — freeze story ownership into a claim token
   useEffect(() => {
-    if (!authLoading && isAuthenticated && user && !user.isAnonymous) {
+    if (claimPrepared.current) return
+    if (!user?.isAnonymous) return
+    claimPrepared.current = true
+    void prepareClaim()
+  }, [user?.isAnonymous, prepareClaim])
+
+  useEffect(() => {
+    if (authLoading || !isAuthenticated || !user || user.isAnonymous) return
+    if (redeemed.current) {
       router.replace(destination)
+      return
     }
-  }, [authLoading, isAuthenticated, user, router, destination])
+    redeemed.current = true
+    void redeemIfNeeded().finally(() => {
+      setLoading(null)
+      router.replace(destination)
+    })
+  }, [authLoading, isAuthenticated, user, router, destination, redeemIfNeeded])
 
   useEffect(() => {
     if (!authLoading && isAuthenticated && user?.isAnonymous && loading === "anonymous") {
@@ -62,6 +81,7 @@ export function AuthForm({ redirectTo = "/" }: AuthFormProps) {
     setError(null)
 
     try {
+      await prepareClaim()
       const result = await signIn("password", {
         email: email.trim().toLowerCase(),
         password,
@@ -73,8 +93,7 @@ export function AuthForm({ redirectTo = "/" }: AuthFormProps) {
         window.location.href = String(result.redirect)
         return
       }
-
-      router.replace(destination)
+      // Navigation happens in effect after redeem
     } catch (err) {
       setError(formatAuthError(err, mode))
       setLoading(null)
@@ -85,6 +104,7 @@ export function AuthForm({ redirectTo = "/" }: AuthFormProps) {
     setLoading(provider)
     setError(null)
     try {
+      await prepareClaim()
       await signIn(provider, { redirectTo: destination })
     } catch (err) {
       setError(formatAuthError(err, mode))

@@ -4,14 +4,17 @@ import { useState, useEffect, useCallback, useRef } from "react"
 import { useRouter } from "next/navigation"
 import Link from "next/link"
 import { AnimatePresence, motion } from "framer-motion"
-import { X, BookOpen, Home } from "lucide-react"
+import { X, BookOpen, Home, Feather } from "lucide-react"
 import { SceneBackground } from "./SceneBackground"
 import { SceneText, type SceneTextHandle } from "./SceneText"
 import { SceneAudio } from "./SceneAudio"
+import { SceneNarration, ttsSupported } from "./SceneNarration"
 import { PlaybackBar } from "./PlaybackBar"
-import { useMutation } from "convex/react"
+import { useMutation, useConvexAuth } from "convex/react"
+import { useAuthActions } from "@convex-dev/auth/react"
 import { api } from "@convex/_generated/api"
 import type { Id } from "@convex/_generated/dataModel"
+import { formatUserError, isNextRedirect } from "@/lib/errors"
 
 interface Scene {
   _id: string
@@ -28,24 +31,51 @@ interface Props {
   title: string
   scenes: Scene[]
   slug: string
+  tone?: "atmospheric" | "psychological" | "jumpscare" | "graphic"
+  theme?: string
+  length?: "short" | "medium" | "long"
 }
 
 const AUTO_PLAY_DELAY = 1200
+const TTS_KEY = "nightfall-tts"
 
-export function StoryPlayer({ storyId, title, scenes, slug }: Props) {
+export function StoryPlayer({
+  storyId,
+  title,
+  scenes,
+  slug,
+  tone = "atmospheric",
+  theme = "",
+  length = "medium",
+}: Props) {
   const router = useRouter()
+  const { isAuthenticated } = useConvexAuth()
+  const { signIn } = useAuthActions()
   const [currentIdx, setCurrentIdx] = useState(0)
   const [isRevealing, setIsRevealing] = useState(true)
   const [autoPlay, setAutoPlay] = useState(false)
   const [audioEnabled, setAudioEnabled] = useState(false)
+  const [narrationEnabled, setNarrationEnabled] = useState(false)
+  const [narrationAvailable, setNarrationAvailable] = useState(false)
   const [sessionId, setSessionId] = useState<Id<"playback_sessions"> | null>(null)
   const [showShare, setShowShare] = useState(false)
   const [finished, setFinished] = useState(false)
+  const [continuing, setContinuing] = useState(false)
   const autoTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const textRef = useRef<SceneTextHandle>(null)
 
   const recordPlay = useMutation(api.stories.recordPlay)
   const updatePlay = useMutation(api.stories.updatePlaySession)
+  const createShell = useMutation(api.stories.createStoryShell)
+
+  useEffect(() => {
+    setNarrationAvailable(ttsSupported())
+    try {
+      setNarrationEnabled(localStorage.getItem(TTS_KEY) === "1")
+    } catch {
+      /* ignore */
+    }
+  }, [])
 
   const scene = scenes[currentIdx]
 
@@ -57,6 +87,39 @@ export function StoryPlayer({ storyId, title, scenes, slug }: Props) {
     clearAuto()
     router.push("/library")
   }, [router, clearAuto])
+
+  const handleContinue = useCallback(async () => {
+    if (continuing) return
+    setContinuing(true)
+    try {
+      if (!isAuthenticated) {
+        await signIn("anonymous")
+      }
+      const { storyId: nextId, slug: nextSlug } = await createShell({
+        prompt: `Continue "${title}". What the last page refused to finish.`,
+        theme: theme || title,
+        tone,
+        length,
+        parentStoryId: storyId,
+      })
+      router.push(`/generate?storyId=${nextId}&slug=${nextSlug}`)
+    } catch (err) {
+      if (isNextRedirect(err)) return
+      window.alert(formatUserError(err))
+      setContinuing(false)
+    }
+  }, [
+    continuing,
+    isAuthenticated,
+    signIn,
+    createShell,
+    title,
+    theme,
+    tone,
+    length,
+    storyId,
+    router,
+  ])
 
   useEffect(() => {
     recordPlay({ storyId })
@@ -276,11 +339,20 @@ export function StoryPlayer({ storyId, title, scenes, slug }: Props) {
               <p className="font-marginalia text-[11px] text-[var(--verdigris)] tracking-wide">
                 the volume ends here
               </p>
-              <div className="flex items-center gap-2">
+              <div className="flex items-center gap-2 flex-wrap justify-center">
+                <button
+                  type="button"
+                  disabled={continuing}
+                  onClick={() => void handleContinue()}
+                  className="inline-flex items-center gap-1.5 rounded-sm border border-[var(--blood)]/50 bg-[var(--blood)]/20 px-3 py-1.5 text-xs text-[var(--blood)] hover:bg-[var(--blood)]/30 transition-colors disabled:opacity-40"
+                >
+                  <Feather className="size-3.5" />
+                  {continuing ? "Writing…" : "Continue"}
+                </button>
                 <button
                   type="button"
                   onClick={exitStory}
-                  className="inline-flex items-center gap-1.5 rounded-sm border border-[var(--blood)]/40 bg-[var(--blood)]/15 px-3 py-1.5 text-xs text-[var(--blood)] hover:bg-[var(--blood)]/25 transition-colors"
+                  className="inline-flex items-center gap-1.5 rounded-sm border border-[var(--border)] px-3 py-1.5 text-xs text-muted hover:text-fg transition-colors"
                 >
                   <BookOpen className="size-3.5" />
                   Library
@@ -299,6 +371,11 @@ export function StoryPlayer({ storyId, title, scenes, slug }: Props) {
       </AnimatePresence>
 
       <SceneAudio soundCue={scene.soundCue} enabled={audioEnabled} />
+      <SceneNarration
+        text={scene.text}
+        enabled={narrationEnabled}
+        sceneKey={currentIdx}
+      />
 
       <PlaybackBar
         current={currentIdx}
@@ -306,11 +383,24 @@ export function StoryPlayer({ storyId, title, scenes, slug }: Props) {
         isRevealing={isRevealing}
         autoPlay={autoPlay}
         audioEnabled={audioEnabled}
+        narrationEnabled={narrationEnabled}
+        narrationAvailable={narrationAvailable}
         onPrev={goPrev}
         onNext={goNext}
         onJump={jumpTo}
         onToggleAuto={() => setAutoPlay((v) => !v)}
         onToggleAudio={() => setAudioEnabled((v) => !v)}
+        onToggleNarration={() => {
+          setNarrationEnabled((v) => {
+            const next = !v
+            try {
+              localStorage.setItem(TTS_KEY, next ? "1" : "0")
+            } catch {
+              /* ignore */
+            }
+            return next
+          })
+        }}
         onShare={handleShare}
         onExit={exitStory}
       />

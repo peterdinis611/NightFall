@@ -58,10 +58,22 @@ export default defineSchema({
     createdAt:    v.number(),
     generatedAt:  v.optional(v.number()),
     errorMessage: v.optional(v.string()),
+    parentStoryId: v.optional(v.id("stories")),
   })
     .index("by_user",   ["userId", "createdAt"])
     .index("by_slug",   ["slug"])
-    .index("by_public", ["isPublic", "playCount"]),
+    .index("by_public", ["isPublic", "playCount"])
+    .index("by_parent", ["parentStoryId"]),
+
+  // One-time tokens so guest stories can move onto a real account
+  account_claims: defineTable({
+    tokenHash:  v.string(),
+    fromUserId: v.id("users"),
+    expiresAt:  v.number(),
+    createdAt:  v.number(),
+  })
+    .index("by_token", ["tokenHash"])
+    .index("by_from_user", ["fromUserId"]),
 
   // ── scenes ────────────────────────────────────────────────────────────────
   scenes: defineTable({

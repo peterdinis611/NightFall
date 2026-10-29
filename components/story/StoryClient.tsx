@@ -66,6 +66,9 @@ export function StoryClient({ slug }: { slug: string }) {
       title={story.title}
       scenes={story.scenes as never}
       slug={slug}
+      tone={story.tone}
+      theme={story.theme}
+      length={story.length}
     />
   )
 }

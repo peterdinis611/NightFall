@@ -19,9 +19,16 @@ import {
   RECOMMENDED_DEMO_ID,
   getTestCase,
 } from "@/lib/testCases"
-import type { PendingPrompt } from "@/lib/pendingPrompt"
+import {
+  type PendingPrompt,
+  savePendingPrompt,
+  readPendingPrompt,
+  clearPendingPrompt,
+} from "@/lib/pendingPrompt"
 import { BloodSpinner } from "@/components/shared/BloodSpinner"
 import { createStoryAction } from "@/app/actions/stories"
+import { unwrapSafeActionResult } from "@/lib/safeActionResult"
+import type { Id } from "@convex/_generated/dataModel"
 
 const PLACEHOLDER_PROMPTS = [
   "Something lives in the walls of my apartment. It knows my name.",
@@ -46,6 +53,7 @@ export function PromptForm() {
   const [theme, setTheme] = useState("")
   const [tone, setTone] = useState<Tone>("atmospheric")
   const [length, setLength] = useState<Length>("medium")
+  const [parentStoryId, setParentStoryId] = useState<Id<"stories"> | undefined>()
   const [loading, setLoading] = useState(false)
   const [phase, setPhase] = useState<"guest" | "summoning" | null>(null)
   const [error, setError] = useState<string | null>(null)
@@ -56,6 +64,20 @@ export function PromptForm() {
     setPlaceholder(
       PLACEHOLDER_PROMPTS[Math.floor(Math.random() * PLACEHOLDER_PROMPTS.length)],
     )
+  }, [])
+
+  // Restore draft after auth redirect
+  useEffect(() => {
+    const draft = readPendingPrompt()
+    if (!draft) return
+    setPrompt(draft.prompt)
+    setTheme(draft.theme)
+    setTone(draft.tone)
+    setLength(draft.length)
+    if (draft.parentStoryId) {
+      setParentStoryId(draft.parentStoryId as Id<"stories">)
+    }
+    clearPendingPrompt()
   }, [])
 
   function applyCase(tc: PendingPrompt & { id?: string }) {
@@ -72,6 +94,8 @@ export function PromptForm() {
       theme: (override?.theme ?? theme) || (override?.prompt ?? prompt).trim(),
       tone: override?.tone ?? tone,
       length: override?.length ?? length,
+      parentStoryId:
+        (override?.parentStoryId as Id<"stories"> | undefined) ?? parentStoryId,
     }
     if (!payload.prompt || loading) return
 
@@ -84,8 +108,6 @@ export function PromptForm() {
     setError(null)
 
     try {
-      // Prefer Convex client mutation — Server Actions often "Failed to fetch"
-      // when cookies/middleware race or a stale tab hits a dead port.
       const needGuest = asGuest || (!authLoading && !isAuthenticated)
       if (needGuest) {
         setPhase("guest")
@@ -98,9 +120,16 @@ export function PromptForm() {
         router.push(`/generate?storyId=${storyId}&slug=${slug}`)
         return
       } catch (clientErr) {
-        // Fallback: Server Action (cookie token) if client mutation fails
         if (!needGuest) {
-          await createStoryAction(payload)
+          unwrapSafeActionResult(
+            await createStoryAction({
+              prompt: payload.prompt,
+              theme: payload.theme,
+              tone: payload.tone,
+              length: payload.length,
+              parentStoryId: payload.parentStoryId,
+            }),
+          )
           return
         }
         throw clientErr
@@ -191,6 +220,12 @@ export function PromptForm() {
           </motion.div>
         )}
       </AnimatePresence>
+
+      {parentStoryId && (
+        <p className="font-marginalia text-[11px] text-[var(--blood)] tracking-wide">
+          continuing a previous volume — the last pages travel with this prompt
+        </p>
+      )}
 
       <div className="relative group">
         <textarea
@@ -336,7 +371,18 @@ export function PromptForm() {
           <span className="hidden sm:inline opacity-40">·</span>
           <button
             type="button"
-            onClick={() => router.push("/auth?redirect=/")}
+            onClick={() => {
+              if (prompt.trim()) {
+                savePendingPrompt({
+                  prompt: prompt.trim(),
+                  theme: theme || prompt.trim(),
+                  tone,
+                  length,
+                  parentStoryId,
+                })
+              }
+              router.push("/auth?redirect=/")
+            }}
             className="inline-flex items-center gap-1.5 hover:text-fg transition-colors"
           >
             <LogIn className="size-3.5" />

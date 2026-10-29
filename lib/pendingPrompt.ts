@@ -3,6 +3,7 @@ export type PendingPrompt = {
   theme: string
   tone: "atmospheric" | "psychological" | "jumpscare" | "graphic"
   length: "short" | "medium" | "long"
+  parentStoryId?: string
 }
 
 const KEY = "nightfall-pending-prompt"

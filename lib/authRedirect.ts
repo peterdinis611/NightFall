@@ -1,4 +1,4 @@
-const ALLOWED_REDIRECTS = new Set(["/", "/library", "/auth", "/generate"])
+const ALLOWED_REDIRECTS = new Set(["/", "/library", "/auth", "/generate", "/explore"])
 
 /** Safe post-auth redirect — only allows known in-app paths. */
 export function getAuthRedirectPath(redirect?: string | null): string {

@@ -96,13 +96,27 @@ export const generateStory = internalAction({
 
     const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY })
 
+    const sequelBlock = story.parentContext
+      ? [
+          `THIS IS A CONTINUATION (sequel chapter).`,
+          `PREVIOUS TITLE: ${story.parentContext.title}`,
+          `PREVIOUS PROMPT: ${story.parentContext.prompt}`,
+          `LAST SCENES FROM PREVIOUS CHAPTER:`,
+          ...story.parentContext.lastScenes.map((t, i) => `[${i + 1}] ${t}`),
+          `Continue from where it left off. Do not restart the premise. Escalate.`,
+        ].join("\n")
+      : ""
+
     const userMessage = [
       `USER PROMPT: ${story.prompt}`,
       `TONE: ${story.tone}`,
       `TONE MODIFIER: ${TONE_MODIFIERS[story.tone] ?? TONE_MODIFIERS.atmospheric}`,
       `LENGTH: ${story.length} (${SCENE_COUNTS[story.length] ?? 6} scenes)`,
       `THEME/SETTING: ${story.theme}`,
-    ].join("\n")
+      sequelBlock,
+    ]
+      .filter(Boolean)
+      .join("\n")
 
     try {
       const response = await openai.chat.completions.create({
@@ -153,6 +167,9 @@ export const generateStory = internalAction({
         sceneCount: sceneRows.length,
         wordCount: totalWords,
       })
+
+      // Images after text is ready — player can start while they fill in
+      await ctx.scheduler.runAfter(0, internal.actions.generateSceneImages, { storyId })
     } catch (err) {
       const raw = err instanceof Error ? err.message : "Generation failed"
       await ctx.runMutation(internal.stories.updateStoryStatus, {
@@ -160,6 +177,50 @@ export const generateStory = internalAction({
         status: "failed",
         errorMessage: sanitizeGenerationFailure(raw),
       })
+    }
+  },
+})
+
+/**
+ * Generate one desaturated still per scene. Failures are silent —
+ * story remains readable with mood backgrounds only.
+ */
+export const generateSceneImages = internalAction({
+  args: { storyId: v.id("stories") },
+  handler: async (ctx, { storyId }) => {
+    if (!process.env.OPENAI_API_KEY) return
+
+    const scenes = await ctx.runQuery(internal.stories.listScenesForImages, { storyId })
+    if (!scenes.length) return
+
+    const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY })
+
+    for (const scene of scenes) {
+      if (scene.imageStorageId) continue
+      const prompt = (scene.imagePrompt ?? "").trim()
+      if (!prompt) continue
+
+      try {
+        const result = await openai.images.generate({
+          model: "dall-e-2",
+          prompt: `${prompt}. No text, no watermark, no readable letters. Cinematic horror still, desaturated, heavy grain, 35mm film.`,
+          size: "512x512",
+          n: 1,
+        })
+        const url = result.data?.[0]?.url
+        if (!url) continue
+
+        const res = await fetch(url)
+        if (!res.ok) continue
+        const blob = await res.blob()
+        const storageId = await ctx.storage.store(blob)
+        await ctx.runMutation(internal.stories.attachSceneImage, {
+          sceneId: scene._id,
+          imageStorageId: storageId,
+        })
+      } catch {
+        // Keep going — images are atmospheric, not required
+      }
     }
   },
 })

@@ -6,27 +6,34 @@ import { api } from "@convex/_generated/api"
 import { motion, AnimatePresence } from "framer-motion"
 import { formatDate } from "@/lib/utils"
 import { LoadingScreen } from "@/components/shared/LoadingScreen"
-import { Trash2, Globe, Lock, BookOpen, Plus, ArrowRight, RefreshCw } from "lucide-react"
+import { Trash2, Globe, Lock, BookOpen, Plus, ArrowRight, RefreshCw, Feather } from "lucide-react"
 import { useState } from "react"
+import { useRouter } from "next/navigation"
 import type { Id } from "@convex/_generated/dataModel"
 import { retryStoryAction } from "@/app/actions/stories"
 import { formatUserError, isNextRedirect } from "@/lib/errors"
+import { unwrapSafeActionResult } from "@/lib/safeActionResult"
 import { sanitizeGenerationError } from "@/lib/sanitizeError"
 
 export function LibraryClient() {
+  const router = useRouter()
   const { isAuthenticated, isLoading: authLoading } = useConvexAuth()
   const result = useQuery(api.stories.getUserStories, isAuthenticated ? {} : "skip")
   const deleteStory = useMutation(api.stories.deleteStory)
   const togglePublic = useMutation(api.stories.togglePublic)
+  const createShell = useMutation(api.stories.createStoryShell)
   const [deleting, setDeleting] = useState<string | null>(null)
   const [retrying, setRetrying] = useState<string | null>(null)
+  const [continuing, setContinuing] = useState<string | null>(null)
 
   const stories: Array<{
     _id: Id<"stories">
     title: string
     slug: string
     prompt: string
-    tone: string
+    theme: string
+    tone: "atmospheric" | "psychological" | "jumpscare" | "graphic"
+    length: "short" | "medium" | "long"
     status: string
     sceneCount: number
     playCount: number
@@ -34,6 +41,24 @@ export function LibraryClient() {
     createdAt: number
     errorMessage?: string
   }> = (result as { stories?: typeof stories })?.stories ?? []
+
+  async function handleContinue(story: (typeof stories)[number]) {
+    setContinuing(story._id)
+    try {
+      const { storyId, slug } = await createShell({
+        prompt: `Continue "${story.title}". What the last page refused to finish.`,
+        theme: story.theme || story.title,
+        tone: story.tone,
+        length: story.length,
+        parentStoryId: story._id,
+      })
+      router.push(`/generate?storyId=${storyId}&slug=${slug}`)
+    } catch (err) {
+      if (isNextRedirect(err)) return
+      window.alert(formatUserError(err))
+      setContinuing(null)
+    }
+  }
 
   async function handleDelete(storyId: Id<"stories">) {
     if (!confirm("Delete this story? This cannot be undone.")) return
@@ -48,7 +73,7 @@ export function LibraryClient() {
   async function handleRetry(storyId: Id<"stories">) {
     setRetrying(storyId)
     try {
-      await retryStoryAction(storyId)
+      unwrapSafeActionResult(await retryStoryAction({ storyId }))
     } catch (err) {
       if (isNextRedirect(err)) return
       window.alert(formatUserError(err))
@@ -83,8 +108,25 @@ export function LibraryClient() {
     return <LoadingScreen message="Loading your stories…" />
   }
 
+  const user = useQuery(api.users.current, isAuthenticated ? {} : "skip")
+
   return (
     <main className="min-h-screen px-4 py-16 pt-28 max-w-3xl mx-auto">
+      {user?.isAnonymous && (
+        <div className="mb-8 border border-[var(--blood)]/30 bg-[var(--blood)]/8 px-4 py-3 text-sm">
+          <p className="text-fg mb-1">Guest session</p>
+          <p className="text-muted text-xs leading-relaxed mb-2">
+            Create an account to keep these stories. We move them when you sign up.
+          </p>
+          <Link
+            href="/auth?redirect=/library"
+            className="text-xs text-[var(--blood)] underline-offset-4 hover:underline"
+          >
+            Create account
+          </Link>
+        </div>
+      )}
+
       <div className="flex items-end justify-between mb-8">
         <div>
           <p className="label-section !mb-2" style={{ color: "var(--verdigris)" }}>
@@ -191,13 +233,24 @@ export function LibraryClient() {
                 </div>
 
                 {story.status === "ready" && (
-                  <Link
-                    href={`/story/${story.slug}`}
-                    className="shrink-0 flex items-center gap-1 rounded-xl btn-ghost !py-1.5 !px-3 !text-xs"
-                  >
-                    Read
-                    <ArrowRight className="size-3" />
-                  </Link>
+                  <div className="shrink-0 flex flex-col gap-1.5">
+                    <Link
+                      href={`/story/${story.slug}`}
+                      className="flex items-center gap-1 rounded-xl btn-ghost !py-1.5 !px-3 !text-xs"
+                    >
+                      Read
+                      <ArrowRight className="size-3" />
+                    </Link>
+                    <button
+                      type="button"
+                      onClick={() => void handleContinue(story)}
+                      disabled={continuing === story._id}
+                      className="flex items-center gap-1 rounded-xl btn-ghost !py-1.5 !px-3 !text-xs disabled:opacity-40"
+                    >
+                      <Feather className="size-3" />
+                      {continuing === story._id ? "…" : "Continue"}
+                    </button>
+                  </div>
                 )}
 
                 {story.status === "generating" && (
